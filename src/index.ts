@@ -1,59 +1,28 @@
-import { loadConfig } from "./config";
-import { Monitor } from "./lib/monitor";
+import { sleep } from "bun";
+import { program } from "commander";
+import packagejson from "../package.json";
+import { setup } from "../scripts/setup";
+import { Process } from "./process";
 
-const config = await loadConfig();
+program
+	.name("Alerterr")
+	.description("Monitor your homelab server and alert on issues.")
+	.version(packagejson.version);
 
-const monitor = new Monitor();
+program
+	.command("start")
+	.description("Start the monitoring process.")
+	.action(async () => {
+		const process = new Process();
+		await sleep(1000);
+		process.start();
+	});
 
-async function startup() {
-	console.log("Starting up...");
-	return monitor.runAllParallel();
-}
+program
+	.command("setup")
+	.description("Start the monitoring process.")
+	.action(async () => {
+		await setup();
+	});
 
-try {
-	await startup();
-	console.log("Alerterr started.");
-} catch (error) {
-	console.error("Error during startup:", error);
-	process.exit(1);
-}
-
-let runCount = 0;
-
-function isOneOfTenRuns() {
-	return runCount % 10 === 0;
-}
-
-const interval = setInterval(async () => {
-	try {
-		await monitor.runAllParallel();
-		runCount++;
-		if (isOneOfTenRuns()) {
-			await monitor.refreshDisks();
-		}
-	} catch (error) {
-		console.error("Error monitoring server:", error);
-	}
-}, config.intervalSeconds * 1000);
-
-// Graceful shutdown, clear interval & notify
-function gracefulShutdown() {
-	clearInterval(interval);
-	console.log("Alerter stopped.");
-	process.exit(0);
-}
-
-// Graceful shutdown on SIGINT and SIGTERM.
-process.on("SIGINT", () => {
-	gracefulShutdown();
-});
-
-process.on("SIGTERM", () => {
-	gracefulShutdown();
-});
-
-// Catch exceptions to trigger an automatic restart if applicable.
-process.on("uncaughtException", (error) => {
-	console.error("Uncaught exception:", error);
-	process.exit(1);
-});
+program.parse(process.argv);
