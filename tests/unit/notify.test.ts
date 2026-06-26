@@ -1,7 +1,14 @@
-import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from "bun:test";
 
 const WEBHOOK = "https://discord.com/api/webhooks/123456789/token";
-const sendDiscordAlertSpy = mock(async (_url: string, _msg: string) => {});
 
 mock.module("../../src/config", () => ({
 	config: {
@@ -9,22 +16,29 @@ mock.module("../../src/config", () => ({
 	},
 }));
 
-mock.module("../../src/lib/notifiers/discord", () => ({
-	sendDiscordAlert: sendDiscordAlertSpy,
-}));
-
 import { notify } from "../../src/lib/notify";
 
-describe("notify", () => {
-	beforeEach(() => {
-		sendDiscordAlertSpy.mockClear();
-	});
+let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">>;
 
-	test("calls sendDiscordAlert with the correct webhookUrl and message", async () => {
+beforeEach(() => {
+	fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+		(async () => new Response("", { status: 204 })) as unknown as typeof fetch,
+	);
+});
+
+afterEach(() => {
+	fetchSpy.mockRestore();
+});
+
+describe("notify", () => {
+	test("dispatches to the discord webhook with the correct URL and message", async () => {
 		await notify("CPU is too hot");
-		expect(sendDiscordAlertSpy).toHaveBeenCalledTimes(1);
-		expect(sendDiscordAlertSpy.mock.calls[0]?.[0]).toBe(WEBHOOK);
-		expect(sendDiscordAlertSpy.mock.calls[0]?.[1]).toBe("CPU is too hot");
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+		expect(fetchSpy.mock.calls[0]?.[0]).toBe(WEBHOOK);
+		const body = JSON.parse(
+			(fetchSpy.mock.calls[0]?.[1] as RequestInit).body as string,
+		);
+		expect(body.content).toBe("CPU is too hot");
 	});
 
 	test("logs the alert message to console before dispatching", async () => {

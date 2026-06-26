@@ -1,11 +1,14 @@
 import { config } from "../config";
-import { sendDiscordAlert } from "./notifiers/discord";
+import { DiscordNotifier } from "./notifiers/discord";
 
 export async function notify(message: string) {
 	console.log(`Sending alert: ${message}`);
 	for (const notifier of config.notifiers) {
 		if (notifier.type === "discord") {
-			await sendDiscordAlert(notifier.webhookUrl, message);
+			const notifierInstance = new DiscordNotifier({
+				webhookUrl: notifier.webhookUrl,
+			});
+			await notifierInstance.sendAlert(message);
 		}
 	}
 }

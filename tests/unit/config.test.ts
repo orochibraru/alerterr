@@ -266,4 +266,15 @@ describe("loadConfig", () => {
 			"At least one notifier must be configured",
 		);
 	});
+
+	test("non-existent notifiers throw an error", async () => {
+		await Bun.write(
+			TMP,
+			JSON.stringify({
+				notifiers: [{ type: "nonexistent", webhookUrl: VALID_WEBHOOK }],
+			}),
+		);
+		expect(loadConfig(TMP)).rejects.toThrow("Unknown notifier type");
+		expect(loadConfig(TMP)).rejects.toThrow("nonexistent");
+	});
 });
