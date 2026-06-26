@@ -10,6 +10,7 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --fix .",
 		"gen:schema": "bun run scripts/generate-schema.ts",
+		"gen:docs": "bun run scripts/generate-docs.ts",
 		"prepare": "husky",
 		"check": "tsc --noEmit --project tsconfig.json"
 	},

@@ -1,9 +1,15 @@
 import si, { type Systeminformation } from "systeminformation";
 import { type Checks, config } from "../../config";
-import { humanReadableBytes } from "../helpers";
 import type { IncidentStore } from "../incident-store";
 import { logger } from "../logger";
 import { Notifiers } from "../notifiers";
+import { checkCpu } from "./checks/cpu";
+import { checkDisk } from "./checks/disk";
+import { checkGpu } from "./checks/gpu";
+import { checkLoad } from "./checks/load";
+import { checkMemory } from "./checks/memory";
+import { checkTemperature } from "./checks/temperature";
+import type { BreachOpts } from "./types";
 
 export class Monitor {
 	readonly checks: Checks;
@@ -43,16 +49,17 @@ export class Monitor {
 		this.breachCounter.delete(key);
 	}
 
-	private async handleBreach(
-		metric: string,
-		volume: string | null,
-		value: number,
-		threshold: number,
-		consecutiveRequired: number,
-		openMsg: string,
-		reminderMsg: string,
-		recoveryMsg: string,
-	): Promise<void> {
+	private async handleBreach(opts: BreachOpts): Promise<void> {
+		const {
+			metric,
+			volume,
+			value,
+			threshold,
+			consecutiveRequired,
+			openMsg,
+			reminderMsg,
+			recoveryMsg,
+		} = opts;
 		const key = volume != null ? `${metric}:${volume}` : metric;
 		const activeIncident = this.incidentStore.getActiveIncident(
 			metric,
@@ -72,11 +79,11 @@ export class Monitor {
 				if (elapsed > this.reminderIntervalMs) {
 					logger.debug(`[${key}] reminder interval exceeded, re-alerting`);
 					await this.notifiers.alert(reminderMsg);
-					this.incidentStore.recordNotification(
-						activeIncident.id,
-						"reminder",
-						true,
-					);
+					this.incidentStore.recordNotification({
+						incidentId: activeIncident.id,
+						type: "reminder",
+						succeeded: true,
+					});
 				}
 			} else {
 				const count = this.incrementBreach(key);
@@ -85,14 +92,18 @@ export class Monitor {
 				);
 				if (count >= consecutiveRequired) {
 					logger.debug(`[${key}] opening incident`);
-					const incident = this.incidentStore.openIncident(
+					const incident = this.incidentStore.openIncident({
 						metric,
 						volume,
 						value,
 						threshold,
-					);
+					});
 					await this.notifiers.alert(openMsg);
-					this.incidentStore.recordNotification(incident.id, "alert", true);
+					this.incidentStore.recordNotification({
+						incidentId: incident.id,
+						type: "alert",
+						succeeded: true,
+					});
 					this.resetBreach(key);
 				}
 			}
@@ -104,11 +115,11 @@ export class Monitor {
 				);
 				this.incidentStore.resolveIncident(activeIncident.id);
 				await this.notifiers.alert(recoveryMsg);
-				this.incidentStore.recordNotification(
-					activeIncident.id,
-					"recovery",
-					true,
-				);
+				this.incidentStore.recordNotification({
+					incidentId: activeIncident.id,
+					type: "recovery",
+					succeeded: true,
+				});
 			} else {
 				logger.debug(`[${key}] value normal (${value} ≤ ${threshold})`);
 			}
@@ -130,160 +141,46 @@ export class Monitor {
 		logger.info(parts.join(" | "));
 	}
 
-	public async checkCpu(): Promise<string | undefined> {
-		if (!this.checks.cpu.enabled) return;
-		const cpuLoad = await si.currentLoad();
-		const usage = Math.round(cpuLoad.currentLoad);
-		logger.debug(`CPU usage: ${usage}%`);
-		await this.handleBreach(
-			"cpu",
-			null,
-			usage,
-			this.checks.cpu.usageThresholdPercent,
-			this.checks.cpu.consecutiveBreaches,
-			`⚠️ **CPU LOAD**: Usage is at **${usage}%**`,
-			`⏰ **CPU REMINDER**: Still at **${usage}%**`,
-			`✅ **CPU**: Back to normal at **${usage}%**`,
-		);
-		return `CPU: ${usage}%`;
+	public checkCpu() {
+		return checkCpu({
+			checks: this.checks.cpu,
+			breach: (o) => this.handleBreach(o),
+		});
 	}
 
-	public async checkLoad(): Promise<string | undefined> {
-		if (!this.checks.load.enabled) return;
-		const cpuLoad = await si.currentLoad();
-		const avgLoad = cpuLoad.avgLoad;
-		logger.debug(`Load average: ${avgLoad.toFixed(2)}`);
-		await this.handleBreach(
-			"load",
-			null,
-			avgLoad,
-			this.checks.load.threshold,
-			this.checks.load.consecutiveBreaches,
-			`🚨 **LOAD CRITICAL**: Load average is at **${avgLoad.toFixed(2)}**`,
-			`⏰ **LOAD REMINDER**: Still at **${avgLoad.toFixed(2)}**`,
-			`✅ **LOAD**: Back to normal at **${avgLoad.toFixed(2)}**`,
-		);
-		return `Load: ${avgLoad.toFixed(2)}`;
+	public checkLoad() {
+		return checkLoad({
+			checks: this.checks.load,
+			breach: (o) => this.handleBreach(o),
+		});
 	}
 
-	public async checkMemory(): Promise<string | undefined> {
-		if (!this.checks.memory.enabled) return;
-		const rawMem = await si.mem();
-		const memUsage = Math.round((rawMem.used / rawMem.total) * 100);
-		logger.debug(
-			`Memory: ${memUsage}% (${humanReadableBytes(rawMem.used)} / ${humanReadableBytes(rawMem.total)})`,
-		);
-		await this.handleBreach(
-			"memory",
-			null,
-			memUsage,
-			this.checks.memory.usageThresholdPercent,
-			this.checks.memory.consecutiveBreaches,
-			`⚠️ **MEMORY USAGE**: Usage is at **${memUsage}% (${humanReadableBytes(rawMem.used)}/${humanReadableBytes(rawMem.total)})**`,
-			`⏰ **MEMORY REMINDER**: Still at **${memUsage}%**`,
-			`✅ **MEMORY**: Back to normal at **${memUsage}%**`,
-		);
-		return `Memory: ${memUsage}%`;
+	public checkMemory() {
+		return checkMemory({
+			checks: this.checks.memory,
+			breach: (o) => this.handleBreach(o),
+		});
 	}
 
-	public async checkDisk(): Promise<string | undefined> {
-		if (!this.checks.disk.enabled) return;
-		const selectedVolumes = this.volumes.filter((vol) =>
-			this.checks.disk.volumes.includes(vol.fs),
-		);
-		if (selectedVolumes.length === 0) return "No volumes found";
-
-		let totalUsage = 0;
-		for (const vol of selectedVolumes) {
-			const diskUsage = Math.round((vol.used / vol.size) * 100);
-			logger.debug(
-				`Disk ${vol.fs}: ${diskUsage}% (${humanReadableBytes(vol.used)} / ${humanReadableBytes(vol.size)})`,
-			);
-			totalUsage += diskUsage;
-			await this.handleBreach(
-				"disk",
-				vol.fs,
-				diskUsage,
-				this.checks.disk.usageThresholdPercent,
-				1,
-				`⚠️ **DISK USAGE** (${vol.fs}): Usage is at **${diskUsage}% (${humanReadableBytes(vol.used)}/${humanReadableBytes(vol.size)})**`,
-				`⏰ **DISK REMINDER** (${vol.fs}): Still at **${diskUsage}%**`,
-				`✅ **DISK** (${vol.fs}): Back to normal at **${diskUsage}%**`,
-			);
-		}
-		return `Disk: ${totalUsage}%`;
+	public checkDisk() {
+		return checkDisk({
+			checks: this.checks.disk,
+			volumes: this.volumes,
+			breach: (o) => this.handleBreach(o),
+		});
 	}
 
-	public async checkTemperature(): Promise<string | undefined> {
-		if (!this.checks.temperature.enabled) return;
-		const [cpuTemp, graphics] = await Promise.all([
-			si.cpuTemperature(),
-			si.graphics(),
-		]);
-
-		const parts: string[] = [];
-
-		const cpuMax = cpuTemp.max ?? cpuTemp.main;
-		if (cpuMax != null) {
-			logger.debug(`CPU temp: ${cpuMax}°C`);
-			await this.handleBreach(
-				"temp:cpu",
-				null,
-				cpuMax,
-				this.checks.temperature.cpuThresholdCelsius,
-				this.checks.temperature.consecutiveBreaches,
-				`🌡️ **CPU TEMP**: Temperature is at **${cpuMax}°C**`,
-				`⏰ **CPU TEMP REMINDER**: Still at **${cpuMax}°C**`,
-				`✅ **CPU TEMP**: Back to normal at **${cpuMax}°C**`,
-			);
-			parts.push(`CPU ${cpuMax}°C`);
-		}
-
-		for (const controller of graphics.controllers) {
-			const gpuTemp = controller.temperatureGpu;
-			if (gpuTemp != null && gpuTemp > 0) {
-				logger.debug(`GPU temp (${controller.name}): ${gpuTemp}°C`);
-				await this.handleBreach(
-					`temp:gpu:${controller.name}`,
-					null,
-					gpuTemp,
-					this.checks.temperature.gpuThresholdCelsius,
-					this.checks.temperature.consecutiveBreaches,
-					`🌡️ **GPU TEMP** (${controller.name}): Temperature is at **${gpuTemp}°C**`,
-					`⏰ **GPU TEMP REMINDER** (${controller.name}): Still at **${gpuTemp}°C**`,
-					`✅ **GPU TEMP** (${controller.name}): Back to normal at **${gpuTemp}°C**`,
-				);
-				parts.push(`${controller.name} ${gpuTemp}°C`);
-			}
-		}
-
-		if (parts.length === 0) return;
-		return `Temp: ${parts.join(" | ")}`;
+	public checkTemperature() {
+		return checkTemperature({
+			checks: this.checks.temperature,
+			breach: (o) => this.handleBreach(o),
+		});
 	}
 
-	public async checkGpu(): Promise<string | undefined> {
-		if (!this.checks.gpu.enabled) return;
-		const graphics = await si.graphics();
-		const parts: string[] = [];
-
-		for (const controller of graphics.controllers) {
-			const util = controller.utilizationGpu;
-			if (util == null) continue;
-			logger.debug(`GPU utilization (${controller.name}): ${util}%`);
-			await this.handleBreach(
-				`gpu:${controller.name}`,
-				null,
-				util,
-				this.checks.gpu.vramThresholdPercent,
-				this.checks.gpu.consecutiveBreaches,
-				`⚠️ **GPU USAGE** (${controller.name}): Usage is at **${util}%**`,
-				`⏰ **GPU REMINDER** (${controller.name}): Still at **${util}%**`,
-				`✅ **GPU** (${controller.name}): Back to normal at **${util}%**`,
-			);
-			parts.push(`${controller.name}: ${util}%`);
-		}
-
-		if (parts.length === 0) return "GPU: N/A";
-		return `GPU: ${parts.join(" | ")}`;
+	public checkGpu() {
+		return checkGpu({
+			checks: this.checks.gpu,
+			breach: (o) => this.handleBreach(o),
+		});
 	}
 }

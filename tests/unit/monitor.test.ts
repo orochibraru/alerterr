@@ -92,22 +92,18 @@ function fakeIncident(overrides: Partial<Incident> = {}): Incident {
 
 // --- IncidentStore mock ---
 
+import type {
+	OpenIncidentOpts,
+	RecordNotificationOpts,
+} from "../../src/lib/incident-store";
+
 const incidentStoreMock = {
 	getActiveIncident: mock(
 		(_metric: string, _volume?: string | null) => null as Incident | null,
 	),
-	openIncident: mock(
-		(
-			_metric: string,
-			_volume: string | null,
-			_value: number,
-			_threshold: number,
-		) => fakeIncident(),
-	),
+	openIncident: mock((_opts: OpenIncidentOpts) => fakeIncident()),
 	resolveIncident: mock((_id: number) => {}),
-	recordNotification: mock(
-		(_id: number, _type: string, _succeeded: boolean) => {},
-	),
+	recordNotification: mock((_opts: RecordNotificationOpts) => {}),
 	getLastNotification: mock((_id: number) => null as Notification | null),
 	listIncidents: mock(() => []),
 	getIncident: mock(() => null),
@@ -199,11 +195,11 @@ describe("checkCpu", () => {
 			succeeded: 1,
 		}));
 		await monitor.checkCpu();
-		expect(incidentStoreMock.recordNotification).toHaveBeenCalledWith(
-			1,
-			"reminder",
-			true,
-		);
+		expect(incidentStoreMock.recordNotification).toHaveBeenCalledWith({
+			incidentId: 1,
+			type: "reminder",
+			succeeded: true,
+		});
 		expect(notifySpy.mock.calls[0]?.[0]).toContain("REMINDER");
 	});
 
@@ -214,11 +210,11 @@ describe("checkCpu", () => {
 		);
 		await monitor.checkCpu();
 		expect(incidentStoreMock.resolveIncident).toHaveBeenCalledWith(1);
-		expect(incidentStoreMock.recordNotification).toHaveBeenCalledWith(
-			1,
-			"recovery",
-			true,
-		);
+		expect(incidentStoreMock.recordNotification).toHaveBeenCalledWith({
+			incidentId: 1,
+			type: "recovery",
+			succeeded: true,
+		});
 		expect(notifySpy.mock.calls[0]?.[0]).toContain("Back to normal");
 	});
 });
@@ -357,13 +353,13 @@ describe("checkTemperature", () => {
 		expect(await monitor.checkTemperature()).toBeUndefined();
 	});
 
-	test("returns undefined when CPU temp is null even if enabled", async () => {
+	test("returns 'Temp: N/A' when no temp readings are available even if enabled", async () => {
 		(
 			monitor as unknown as { checks: { temperature: { enabled: boolean } } }
 		).checks.temperature.enabled = true;
 		cpuTempData = { main: null, max: null };
 		graphicsData = { controllers: [] };
-		expect(await monitor.checkTemperature()).toBeUndefined();
+		expect(await monitor.checkTemperature()).toBe("Temp: N/A");
 	});
 
 	test("returns CPU temp string when reading is available", async () => {
@@ -395,12 +391,12 @@ describe("checkTemperature", () => {
 		};
 		cpuTempData = { main: 75, max: 78 };
 		await monitor.checkTemperature();
-		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith(
-			"temp:cpu",
-			null,
-			78,
-			70,
-		);
+		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith({
+			metric: "temp:cpu",
+			volume: null,
+			value: 78,
+			threshold: 70,
+		});
 		expect(notifySpy).toHaveBeenCalledTimes(1);
 	});
 
@@ -427,12 +423,12 @@ describe("checkTemperature", () => {
 			controllers: [{ name: "RTX4090", temperatureGpu: 80 }],
 		};
 		await monitor.checkTemperature();
-		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith(
-			"temp:gpu:RTX4090",
-			null,
-			80,
-			70,
-		);
+		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith({
+			metric: "temp:gpu:RTX4090",
+			volume: null,
+			value: 80,
+			threshold: 70,
+		});
 	});
 });
 
@@ -481,12 +477,12 @@ describe("checkGpu", () => {
 		};
 		graphicsData = { controllers: [{ name: "RTX4090", utilizationGpu: 95 }] };
 		await monitor.checkGpu();
-		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith(
-			"gpu:RTX4090",
-			null,
-			95,
-			80,
-		);
+		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith({
+			metric: "gpu:RTX4090",
+			volume: null,
+			value: 95,
+			threshold: 80,
+		});
 	});
 });
 

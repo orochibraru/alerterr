@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ENV_VARS, type EnvVarType } from "./lib/env";
 import { logger, setLogLevel } from "./lib/logger";
 import { discordNotifierSchema } from "./lib/notifiers/discord";
 import { telegramNotifierSchema } from "./lib/notifiers/telegram";
@@ -149,6 +150,57 @@ export type Config = z.infer<typeof ConfigSchema>;
 
 export let config: Config;
 
+// ── Environment variable helpers ─────────────────────────────────────────────
+
+function coerceEnv(value: string, type: EnvVarType): unknown {
+	switch (type) {
+		case "number":
+			return Number(value);
+		case "boolean":
+			return value === "true" || value === "1";
+		case "csv":
+			return value
+				.split(",")
+				.map((s) => s.trim())
+				.filter(Boolean);
+		case "json":
+			return JSON.parse(value);
+		default:
+			return value;
+	}
+}
+
+type SetPathOpts = {
+	obj: Record<string, unknown>;
+	path: string[];
+	value: unknown;
+};
+function setPath({ obj, path, value }: SetPathOpts): void {
+	let cur = obj;
+	for (let i = 0; i < path.length - 1; i++) {
+		const key = path[i] ?? "";
+		if (typeof cur[key] !== "object" || cur[key] === null) cur[key] = {};
+		cur = cur[key] as Record<string, unknown>;
+	}
+	const last = path[path.length - 1] ?? "";
+	cur[last] = value;
+}
+
+function applyEnvOverrides(raw: Record<string, unknown>): void {
+	for (const [name, def] of Object.entries(ENV_VARS)) {
+		const val = process.env[name];
+		if (val == null || val === "") continue;
+		try {
+			setPath({ obj: raw, path: def.path, value: coerceEnv(val, def.type) });
+			logger.debug(`Env override applied: ${name}`);
+		} catch {
+			logger.warn(`Invalid value for ${name}="${val}", ignoring.`);
+		}
+	}
+}
+
+// ── loadConfig ────────────────────────────────────────────────────────────────
+
 export async function loadConfig(path = "./config.json"): Promise<Config> {
 	logger.debug(`Loading config from ${path}...`);
 	const file = Bun.file(path);
@@ -158,7 +210,8 @@ export async function loadConfig(path = "./config.json"): Promise<Config> {
 		);
 	}
 	logger.debug("Parsing config...");
-	const raw = JSON.parse(await file.text()) as unknown;
+	const raw = JSON.parse(await file.text()) as Record<string, unknown>;
+	applyEnvOverrides(raw);
 	const result = ConfigSchema.safeParse(raw);
 	if (!result.success) {
 		const issues = result.error.issues

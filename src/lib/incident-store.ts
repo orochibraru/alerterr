@@ -23,15 +23,24 @@ export type Notification = {
 export type IncidentSummary = Incident & { notification_count: number };
 export type IncidentDetail = Incident & { notifications: Notification[] };
 
+export type OpenIncidentOpts = {
+	metric: string;
+	volume: string | null;
+	value: number;
+	threshold: number;
+};
+
+export type RecordNotificationOpts = {
+	incidentId: number;
+	type: NotificationType;
+	succeeded: boolean;
+};
+
 export class IncidentStore {
 	constructor(private db: Database) {}
 
-	openIncident(
-		metric: string,
-		volume: string | null,
-		value: number,
-		threshold: number,
-	): Incident {
+	openIncident(opts: OpenIncidentOpts): Incident {
+		const { metric, volume, value, threshold } = opts;
 		const now = Date.now();
 		const row = this.db
 			.query(
@@ -71,11 +80,8 @@ export class IncidentStore {
 			.run(Date.now(), id);
 	}
 
-	recordNotification(
-		incidentId: number,
-		type: NotificationType,
-		succeeded: boolean,
-	): void {
+	recordNotification(opts: RecordNotificationOpts): void {
+		const { incidentId, type, succeeded } = opts;
 		this.db
 			.query(
 				"INSERT INTO notifications (incident_id, sent_at, type, succeeded) VALUES (?, ?, ?, ?)",
