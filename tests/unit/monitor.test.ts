@@ -25,7 +25,11 @@ mock.module("../../src/lib/notify", () => ({
 mock.module("../../src/config", () => ({
 	config: {
 		checks: {
-			cpu: { enabled: true, usageThresholdPercent: 90, tempThresholdCelsius: 85 },
+			cpu: {
+				enabled: true,
+				usageThresholdPercent: 90,
+				tempThresholdCelsius: 85,
+			},
 			load: { enabled: true, threshold: 8.0 },
 			memory: { enabled: true, usageThresholdPercent: 90 },
 			disk: { enabled: true, usageThresholdPercent: 90, volumes: ["/"] },
