@@ -1,14 +1,16 @@
 import si, { type Systeminformation } from "systeminformation";
 import { type Checks, config } from "../config";
 import { humanReadableBytes } from "./helpers";
-import { notify } from "./notify";
+import { Notifiers } from "./notifiers";
 
 export class Monitor {
 	readonly checks: Checks;
-	volumes: Systeminformation.FsSizeData[] = [];
+	public volumes: Systeminformation.FsSizeData[] = [];
+	private notifiers: Notifiers;
 
 	public constructor() {
 		this.checks = config.checks;
+		this.notifiers = new Notifiers();
 		void this.lazyInit();
 	}
 
@@ -39,7 +41,9 @@ export class Monitor {
 		const cpuLoad = await si.currentLoad();
 		const cpuUsage = Math.round(cpuLoad.currentLoad);
 		if (cpuUsage > this.checks.cpu.usageThresholdPercent) {
-			await notify(`⚠️ **CPU LOAD**: Usage is at **${cpuUsage}%**`);
+			await this.notifiers.alert(
+				`⚠️ **CPU LOAD**: Usage is at **${cpuUsage}%**`,
+			);
 		}
 		return `CPU: ${cpuUsage}%`;
 	}
@@ -51,7 +55,7 @@ export class Monitor {
 		const cpuLoad = await si.currentLoad();
 		const avgLoad = cpuLoad.avgLoad;
 		if (avgLoad > this.checks.load.threshold) {
-			await notify(
+			await this.notifiers.alert(
 				`🚨 **LOAD CRITICAL**: Load average is at **${avgLoad.toFixed(2)}**`,
 			);
 		}
@@ -63,7 +67,7 @@ export class Monitor {
 			return;
 		}
 		const selectedVolumes = this.volumes.filter((vol) =>
-			this.checks.disk.volumes.includes(vol.mount),
+			this.checks.disk.volumes.includes(vol.fs),
 		);
 
 		if (selectedVolumes.length === 0) {
@@ -76,7 +80,7 @@ export class Monitor {
 			const diskUsage = Math.round((vol.used / vol.size) * 100);
 			globalUsagePercentage += diskUsage;
 			if (diskUsage > this.checks.disk.usageThresholdPercent) {
-				await notify(
+				await this.notifiers.alert(
 					`⚠️ **DISK USAGE**: Usage is at **${diskUsage}% (${humanReadableBytes(vol.used)}/${humanReadableBytes(vol.size)})**`,
 				);
 			}
@@ -92,7 +96,7 @@ export class Monitor {
 		const rawMem = await si.mem();
 		const memUsage = Math.round((rawMem.used / rawMem.total) * 100);
 		if (memUsage > this.checks.memory.usageThresholdPercent) {
-			await notify(
+			await this.notifiers.alert(
 				`⚠️ **MEMORY USAGE**: Usage is at **${memUsage}% (${humanReadableBytes(rawMem.used)}/${humanReadableBytes(rawMem.total)})**`,
 			);
 		}

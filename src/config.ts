@@ -1,14 +1,19 @@
 import { z } from "zod";
 import { discordNotifierSchema } from "./lib/notifiers/discord";
+import { telegramNotifierSchema } from "./lib/notifiers/telegram";
 
 // To add a new notifier:
 //   1. Create src/lib/notifiers/<name>.ts — export its Zod schema and class
 //   2. Import the schema here and add it to the array below
 //   3. Add an instantiation branch in src/lib/notify.ts
-const NotifierSchema = z.discriminatedUnion("type", [discordNotifierSchema], {
-	error: (issue) =>
-		`Unknown notifier type "${(issue.input as Record<string, unknown>)?.type}". Registered types: discord`,
-});
+const NotifierSchema = z.discriminatedUnion(
+	"type",
+	[discordNotifierSchema, telegramNotifierSchema],
+	{
+		error: (issue) =>
+			`Unknown notifier type "${(issue.input as Record<string, unknown>)?.type}". Registered types: discord, telegram`,
+	},
+);
 
 const CpuCheckSchema = z.object({
 	enabled: z.boolean({ error: "Must be true or false" }).default(true),
@@ -56,11 +61,11 @@ const DiskCheckSchema = z.object({
 		.max(100, "Must be at most 100")
 		.default(90),
 	volumes: z
-		.array(z.string({ error: 'Must be a volume name (e.g. "/dev/sda")' }), {
-			error: "Must be an array of volume names",
+		.array(z.string({ error: 'Must be a mount point (e.g. "/" or "/data")' }), {
+			error: "Must be an array of mount points",
 		})
-		.min(1, 'Must include at least one volume name (e.g. ["/dev/sda"])')
-		.default(["/dev/sda"]),
+		.min(1, 'Must include at least one mount point (e.g. ["/"])')
+		.default(["/"]),
 });
 
 export type DiskChecks = z.infer<typeof DiskCheckSchema>;

@@ -18,8 +18,12 @@ mock.module("systeminformation", () => ({
 	},
 }));
 
-mock.module("../../src/lib/notify", () => ({
-	notify: notifySpy,
+mock.module("../../src/lib/notifiers", () => ({
+	Notifiers: class {
+		async alert(msg: string) {
+			return notifySpy(msg);
+		}
+	},
 }));
 
 mock.module("../../src/config", () => ({

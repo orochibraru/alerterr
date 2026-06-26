@@ -16,7 +16,7 @@ mock.module("../../src/config", () => ({
 	},
 }));
 
-import { notify } from "../../src/lib/notify";
+import { Notifiers } from "../../src/lib/notifiers";
 
 let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">>;
 
@@ -32,7 +32,8 @@ afterEach(() => {
 
 describe("notify", () => {
 	test("dispatches to the discord webhook with the correct URL and message", async () => {
-		await notify("CPU is too hot");
+		const notifiers = new Notifiers();
+		await notifiers.alert("CPU is too hot");
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 		expect(fetchSpy.mock.calls[0]?.[0]).toBe(WEBHOOK);
 		const body = JSON.parse(
@@ -43,7 +44,8 @@ describe("notify", () => {
 
 	test("logs the alert message to console before dispatching", async () => {
 		const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
-		await notify("Disk full");
+		const notifiers = new Notifiers();
+		await notifiers.alert("Disk full");
 		expect(
 			consoleSpy.mock.calls.some((args) =>
 				String(args[0]).includes("Disk full"),

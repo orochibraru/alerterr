@@ -51,7 +51,7 @@ describe("ConfigSchema", () => {
 			if (r.success) {
 				expect(r.data.checks.disk.enabled).toBe(true);
 				expect(r.data.checks.disk.usageThresholdPercent).toBe(90);
-				expect(r.data.checks.disk.volumes).toEqual(["/dev/sda"]);
+				expect(r.data.checks.disk.volumes).toEqual(["/"]);
 			}
 		});
 	});
@@ -84,7 +84,7 @@ describe("ConfigSchema", () => {
 			}
 		});
 
-		test("accepts multiple notifiers", () => {
+		test("accepts multiple notifiers of the same type", () => {
 			const r = ConfigSchema.safeParse({
 				...minimal,
 				notifiers: [
@@ -93,6 +93,34 @@ describe("ConfigSchema", () => {
 						type: "discord",
 						webhookUrl: "https://discord.com/api/webhooks/987/xyz",
 					},
+				],
+			});
+			expect(r.success).toBe(true);
+			if (r.success) expect(r.data.notifiers).toHaveLength(2);
+		});
+
+		test("accepts a valid Telegram notifier", () => {
+			const r = ConfigSchema.safeParse({
+				notifiers: [
+					{ type: "telegram", botToken: "123:ABC", chatId: "-100123" },
+				],
+			});
+			expect(r.success).toBe(true);
+			if (r.success) {
+				const n = r.data.notifiers[0];
+				expect(n?.type).toBe("telegram");
+				if (n?.type === "telegram") {
+					expect(n.botToken).toBe("123:ABC");
+					expect(n.chatId).toBe("-100123");
+				}
+			}
+		});
+
+		test("accepts mixed Discord and Telegram notifiers together", () => {
+			const r = ConfigSchema.safeParse({
+				notifiers: [
+					{ type: "discord", webhookUrl: VALID_WEBHOOK },
+					{ type: "telegram", botToken: "123:ABC", chatId: "-100123" },
 				],
 			});
 			expect(r.success).toBe(true);
@@ -110,16 +138,95 @@ describe("ConfigSchema", () => {
 	});
 
 	describe("validation errors", () => {
-		test("rejects invalid Discord webhook URL", () => {
+		describe("Discord notifier", () => {
+			test("rejects an invalid webhook URL", () => {
+				const r = ConfigSchema.safeParse({
+					notifiers: [{ type: "discord", webhookUrl: "not-a-url" }],
+				});
+				expect(r.success).toBe(false);
+				if (!r.success)
+					expect(r.error.issues[0]?.message).toContain(
+						"Must be a valid Discord webhook URL",
+					);
+			});
+
+			test("rejects a missing webhookUrl", () => {
+				const r = ConfigSchema.safeParse({
+					notifiers: [{ type: "discord" }],
+				});
+				expect(r.success).toBe(false);
+			});
+
+			test("rejects extra unknown fields", () => {
+				const r = ConfigSchema.safeParse({
+					notifiers: [
+						{ type: "discord", webhookUrl: VALID_WEBHOOK, extra: true },
+					],
+				});
+				expect(r.success).toBe(false);
+			});
+		});
+
+		describe("Telegram notifier", () => {
+			test("rejects a missing botToken", () => {
+				const r = ConfigSchema.safeParse({
+					notifiers: [{ type: "telegram", chatId: "-100123" }],
+				});
+				expect(r.success).toBe(false);
+			});
+
+			test("rejects an empty botToken", () => {
+				const r = ConfigSchema.safeParse({
+					notifiers: [{ type: "telegram", botToken: "", chatId: "-100123" }],
+				});
+				expect(r.success).toBe(false);
+				if (!r.success)
+					expect(r.error.issues[0]?.message).toContain(
+						"Bot token cannot be empty",
+					);
+			});
+
+			test("rejects a missing chatId", () => {
+				const r = ConfigSchema.safeParse({
+					notifiers: [{ type: "telegram", botToken: "123:ABC" }],
+				});
+				expect(r.success).toBe(false);
+			});
+
+			test("rejects an empty chatId", () => {
+				const r = ConfigSchema.safeParse({
+					notifiers: [{ type: "telegram", botToken: "123:ABC", chatId: "" }],
+				});
+				expect(r.success).toBe(false);
+				if (!r.success)
+					expect(r.error.issues[0]?.message).toContain("Chat ID cannot be empty");
+			});
+
+			test("rejects extra unknown fields", () => {
+				const r = ConfigSchema.safeParse({
+					notifiers: [
+						{
+							type: "telegram",
+							botToken: "123:ABC",
+							chatId: "-100123",
+							extra: true,
+						},
+					],
+				});
+				expect(r.success).toBe(false);
+			});
+		});
+
+		test("rejects an unknown notifier type with an explanatory message", () => {
 			const r = ConfigSchema.safeParse({
-				...minimal,
-				notifiers: [{ type: "discord", webhookUrl: "not-a-url" }],
+				notifiers: [{ type: "slack", webhookUrl: VALID_WEBHOOK }],
 			});
 			expect(r.success).toBe(false);
 			if (!r.success) {
-				expect(r.error.issues[0]?.message).toContain(
-					"Must be a valid Discord webhook URL",
-				);
+				expect(r.error.issues[0]?.message).toContain("Unknown notifier type");
+				expect(r.error.issues[0]?.message).toContain("slack");
+				expect(r.error.issues[0]?.message).toContain("discord");
+				expect(r.error.issues[0]?.message).toContain("telegram");
 			}
 		});
 

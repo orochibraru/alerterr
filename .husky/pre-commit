@@ -1,1 +1,2 @@
+bun run gen:schema
 bun run lint:fix

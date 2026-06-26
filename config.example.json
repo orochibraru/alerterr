@@ -18,7 +18,7 @@
 		"disk": {
 			"enabled": true,
 			"usageThresholdPercent": 90,
-			"paths": ["/"]
+			"volumes": ["/dev/sda"]
 		}
 	},
 	"notifiers": [

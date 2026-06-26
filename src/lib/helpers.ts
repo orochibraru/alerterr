@@ -1,3 +1,8 @@
+/**
+ * Converts a number of bytes to a human-readable string.
+ * @param bytes
+ * @returns {string} The human-readable string representation of the bytes.
+ */
 export function humanReadableBytes(bytes: number): string {
 	const units = ["B", "KB", "MB", "GB", "TB"];
 	let unitIndex = 0;
