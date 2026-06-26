@@ -49,6 +49,7 @@ export class Monitor {
 		}
 		const rawFsSize = await si.fsSize();
 		for (const rawFs of rawFsSize) {
+			console.log(rawFs);
 			const diskUsage = Math.round((rawFs.used / rawFs.size) * 100);
 			if (diskUsage > this.checks.disk.usageThresholdPercent) {
 				await notify(

@@ -3,7 +3,7 @@ export async function sendDiscordAlert(webhookUrl: string, message: string) {
 		const res = await fetch(webhookUrl, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ content: message }),
+			body: JSON.stringify({ content: message, username: "Alerterr" }),
 		});
 		if (!res.ok) {
 			console.error(
