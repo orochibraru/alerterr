@@ -2,6 +2,8 @@ import { z } from "zod";
 import { ConfigSchema } from "../src/config";
 import { logger } from "../src/lib/logger";
 
+logger.info("Generating config.schema.json...");
+
 const schema = z.toJSONSchema(ConfigSchema, {
 	target: "draft-7",
 	unrepresentable: "any",
