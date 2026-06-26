@@ -67,10 +67,10 @@ jobs:
       - name: Linting
         run: bun run lint
 
-      - name: Test
-        run: bun test --bail
+      - name: Test (unit)
+        run: bun test --bail tests/unit
 
-      - name: Test (isolated)
+      - name: Test (all, isolated)
         run: bun test --bail --isolate
 
       - name: Ensure schema is up to date

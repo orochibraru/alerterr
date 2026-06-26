@@ -4,6 +4,8 @@ import type {
 	Incident,
 	IncidentStore,
 	Notification,
+	OpenIncidentOpts,
+	RecordNotificationOpts,
 } from "../../src/lib/incident-store";
 import { logger } from "../../src/lib/logger";
 
@@ -11,6 +13,7 @@ import { logger } from "../../src/lib/logger";
 
 let cpuLoadData = { currentLoad: 50, avgLoad: 2.5 };
 let memData = { total: 16 * 1024 ** 3, used: 8 * 1024 ** 3 };
+let diskData: Systeminformation.FsSizeData[] = [];
 let cpuTempData = { main: null as number | null, max: null as number | null };
 let graphicsData = {
 	controllers: [] as Partial<Systeminformation.GraphicsControllerData>[],
@@ -23,7 +26,7 @@ const notifySpy = mock(async (_msg: string) => {});
 mock.module("systeminformation", () => ({
 	default: {
 		currentLoad: async () => cpuLoadData,
-		fsSize: async () => [] as Systeminformation.FsSizeData[],
+		fsSize: async () => diskData,
 		mem: async () => memData,
 		cpuTemperature: async () => cpuTempData,
 		graphics: async () => graphicsData,
@@ -40,9 +43,9 @@ mock.module("../../src/lib/notifiers", () => ({
 
 mock.module("../../src/config", () => ({
 	config: {
+		machineName: "test-host",
 		reminderIntervalMinutes: 30,
 		checks: {
-			// consecutiveBreaches: 1 so single-call tests keep working
 			cpu: { enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
 			load: { enabled: true, threshold: 8.0, consecutiveBreaches: 1 },
 			memory: {
@@ -63,6 +66,13 @@ mock.module("../../src/config", () => ({
 }));
 
 import { Monitor } from "../../src/lib/monitor";
+import type { CheckDeps } from "../../src/lib/monitor/base-check";
+import { CpuCheck } from "../../src/lib/monitor/checks/cpu";
+import { DiskCheck } from "../../src/lib/monitor/checks/disk";
+import { GpuCheck } from "../../src/lib/monitor/checks/gpu";
+import { LoadCheck } from "../../src/lib/monitor/checks/load";
+import { MemoryCheck } from "../../src/lib/monitor/checks/memory";
+import { TemperatureCheck } from "../../src/lib/monitor/checks/temperature";
 
 // --- Helpers ---
 
@@ -92,11 +102,6 @@ function fakeIncident(overrides: Partial<Incident> = {}): Incident {
 
 // --- IncidentStore mock ---
 
-import type {
-	OpenIncidentOpts,
-	RecordNotificationOpts,
-} from "../../src/lib/incident-store";
-
 const incidentStoreMock = {
 	getActiveIncident: mock(
 		(_metric: string, _volume?: string | null) => null as Incident | null,
@@ -109,6 +114,18 @@ const incidentStoreMock = {
 	getIncident: mock(() => null),
 };
 
+// --- Shared deps factory ---
+
+function makeDeps(overrides?: Partial<CheckDeps>): CheckDeps {
+	return {
+		incidentStore: incidentStoreMock as unknown as IncidentStore,
+		notifiers: { alert: notifySpy },
+		reminderIntervalMs: 30 * 60_000,
+		breachCounter: new Map(),
+		...overrides,
+	};
+}
+
 // --- Setup ---
 
 let monitor: Monitor;
@@ -117,49 +134,76 @@ beforeEach(async () => {
 	notifySpy.mockClear();
 	cpuLoadData = { currentLoad: 50, avgLoad: 2.5 };
 	memData = { total: 16 * GB, used: 8 * GB };
+	diskData = [];
 	cpuTempData = { main: null, max: null };
 	graphicsData = { controllers: [] };
 
 	for (const spy of Object.values(incidentStoreMock)) {
 		spy.mockClear();
 	}
-	// Default: no active incident
 	incidentStoreMock.getActiveIncident.mockImplementation(() => null);
 	incidentStoreMock.openIncident.mockImplementation(() => fakeIncident());
 	incidentStoreMock.getLastNotification.mockImplementation(() => null);
 
 	monitor = new Monitor(incidentStoreMock as unknown as IncidentStore);
-	await new Promise<void>((r) => setTimeout(r, 0));
 });
 
-// --- checkCpu ---
+// --- CpuCheck ---
 
 describe("checkCpu", () => {
 	test("returns formatted CPU usage string", async () => {
 		cpuLoadData = { currentLoad: 50.4, avgLoad: 2.5 };
-		expect(await monitor.checkCpu()).toBe("CPU: 50%");
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("CPU: 50%");
 	});
 
 	test("rounds up fractional CPU usage", async () => {
 		cpuLoadData = { currentLoad: 72.6, avgLoad: 2.5 };
-		expect(await monitor.checkCpu()).toBe("CPU: 73%");
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("CPU: 73%");
+	});
+
+	test("returns undefined when disabled", async () => {
+		const check = new CpuCheck(
+			{ enabled: false, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		expect(await check.run()).toBeUndefined();
 	});
 
 	test("does not notify when usage is below threshold", async () => {
 		cpuLoadData = { currentLoad: 89, avgLoad: 2.5 };
-		await monitor.checkCpu();
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(notifySpy).not.toHaveBeenCalled();
 	});
 
 	test("does not notify when usage equals threshold", async () => {
 		cpuLoadData = { currentLoad: 90, avgLoad: 2.5 };
-		await monitor.checkCpu();
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(notifySpy).not.toHaveBeenCalled();
 	});
 
 	test("opens an incident and alerts on first breach", async () => {
 		cpuLoadData = { currentLoad: 95, avgLoad: 2.5 };
-		await monitor.checkCpu();
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(incidentStoreMock.openIncident).toHaveBeenCalledTimes(1);
 		expect(notifySpy).toHaveBeenCalledTimes(1);
 		expect(notifySpy.mock.calls[0]?.[0]).toContain("95%");
@@ -173,11 +217,15 @@ describe("checkCpu", () => {
 		incidentStoreMock.getLastNotification.mockImplementation(() => ({
 			id: 1,
 			incident_id: 1,
-			sent_at: Date.now() - 1_000, // 1 second ago — within reminder window
+			sent_at: Date.now() - 1_000,
 			type: "alert" as const,
 			succeeded: 1,
 		}));
-		await monitor.checkCpu();
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(incidentStoreMock.openIncident).not.toHaveBeenCalled();
 		expect(notifySpy).not.toHaveBeenCalled();
 	});
@@ -190,11 +238,15 @@ describe("checkCpu", () => {
 		incidentStoreMock.getLastNotification.mockImplementation(() => ({
 			id: 1,
 			incident_id: 1,
-			sent_at: Date.now() - 31 * 60_000, // 31 minutes ago — past the 30-min interval
+			sent_at: Date.now() - 31 * 60_000,
 			type: "alert" as const,
 			succeeded: 1,
 		}));
-		await monitor.checkCpu();
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(incidentStoreMock.recordNotification).toHaveBeenCalledWith({
 			incidentId: 1,
 			type: "reminder",
@@ -208,7 +260,11 @@ describe("checkCpu", () => {
 		incidentStoreMock.getActiveIncident.mockImplementation(() =>
 			fakeIncident(),
 		);
-		await monitor.checkCpu();
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(incidentStoreMock.resolveIncident).toHaveBeenCalledWith(1);
 		expect(incidentStoreMock.recordNotification).toHaveBeenCalledWith({
 			incidentId: 1,
@@ -222,175 +278,225 @@ describe("checkCpu", () => {
 // --- breach counter ---
 
 describe("breach counter (consecutiveBreaches = 3)", () => {
-	// Create a fresh monitor with consecutiveBreaches: 3 via config manipulation.
-	// Since config is module-mocked, we use a separate monitor instance where
-	// we override the checks field after construction.
 	test("does not alert before reaching consecutiveBreaches count", async () => {
-		// Use a fresh monitor with consecutiveBreaches=3 by temporarily patching checks
-		const m = new Monitor(incidentStoreMock as unknown as IncidentStore);
-		// Patch the checks to require 3 breaches
-		(
-			m as unknown as { checks: { cpu: { consecutiveBreaches: number } } }
-		).checks.cpu.consecutiveBreaches = 3;
 		cpuLoadData = { currentLoad: 95, avgLoad: 2.5 };
-		await m.checkCpu();
-		await m.checkCpu();
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 3 },
+			makeDeps(),
+		);
+		await check.run();
+		await check.run();
 		expect(incidentStoreMock.openIncident).not.toHaveBeenCalled();
 		expect(notifySpy).not.toHaveBeenCalled();
 	});
 
 	test("alerts on the Nth consecutive breach", async () => {
-		const m = new Monitor(incidentStoreMock as unknown as IncidentStore);
-		(
-			m as unknown as { checks: { cpu: { consecutiveBreaches: number } } }
-		).checks.cpu.consecutiveBreaches = 3;
 		cpuLoadData = { currentLoad: 95, avgLoad: 2.5 };
-		await m.checkCpu();
-		await m.checkCpu();
-		await m.checkCpu();
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 3 },
+			makeDeps(),
+		);
+		await check.run();
+		await check.run();
+		await check.run();
 		expect(incidentStoreMock.openIncident).toHaveBeenCalledTimes(1);
 		expect(notifySpy).toHaveBeenCalledTimes(1);
 	});
 
 	test("resets counter when value drops below threshold", async () => {
-		const m = new Monitor(incidentStoreMock as unknown as IncidentStore);
-		(
-			m as unknown as { checks: { cpu: { consecutiveBreaches: number } } }
-		).checks.cpu.consecutiveBreaches = 3;
 		cpuLoadData = { currentLoad: 95, avgLoad: 2.5 };
-		await m.checkCpu();
-		cpuLoadData = { currentLoad: 50, avgLoad: 2.5 }; // drops below
-		await m.checkCpu();
-		cpuLoadData = { currentLoad: 95, avgLoad: 2.5 }; // spikes again
-		await m.checkCpu();
-		// Only 1 breach since reset — should not alert
+		const check = new CpuCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 3 },
+			makeDeps(),
+		);
+		await check.run();
+		cpuLoadData = { currentLoad: 50, avgLoad: 2.5 };
+		await check.run();
+		cpuLoadData = { currentLoad: 95, avgLoad: 2.5 };
+		await check.run();
 		expect(incidentStoreMock.openIncident).not.toHaveBeenCalled();
 	});
 });
 
-// --- checkLoad ---
+// --- LoadCheck ---
 
 describe("checkLoad", () => {
 	test("returns formatted load average string", async () => {
 		cpuLoadData = { currentLoad: 50, avgLoad: Math.PI };
-		expect(await monitor.checkLoad()).toBe("Load: 3.14");
+		const check = new LoadCheck(
+			{ enabled: true, threshold: 8.0, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("Load: 3.14");
 	});
 
 	test("does not notify when load is below threshold", async () => {
 		cpuLoadData = { currentLoad: 50, avgLoad: 7.99 };
-		await monitor.checkLoad();
+		const check = new LoadCheck(
+			{ enabled: true, threshold: 8.0, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(notifySpy).not.toHaveBeenCalled();
 	});
 
 	test("opens incident when load exceeds threshold", async () => {
 		cpuLoadData = { currentLoad: 50, avgLoad: 9.5 };
-		await monitor.checkLoad();
+		const check = new LoadCheck(
+			{ enabled: true, threshold: 8.0, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(notifySpy).toHaveBeenCalledTimes(1);
 		expect(notifySpy.mock.calls[0]?.[0]).toContain("9.50");
 	});
 });
 
-// --- checkMemory ---
+// --- MemoryCheck ---
 
 describe("checkMemory", () => {
 	test("returns formatted memory usage string", async () => {
 		memData = { total: 16 * GB, used: 8 * GB };
-		expect(await monitor.checkMemory()).toBe("Memory: 50%");
+		const check = new MemoryCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("Memory: 50%");
 	});
 
 	test("does not notify when usage is below threshold", async () => {
 		memData = { total: 16 * GB, used: 14 * GB };
-		await monitor.checkMemory();
+		const check = new MemoryCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(notifySpy).not.toHaveBeenCalled();
 	});
 
 	test("opens incident when usage exceeds threshold", async () => {
 		memData = { total: 16 * GB, used: 15 * GB };
-		await monitor.checkMemory();
+		const check = new MemoryCheck(
+			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(notifySpy).toHaveBeenCalledTimes(1);
 		expect(notifySpy.mock.calls[0]?.[0]).toContain("94%");
 	});
 });
 
-// --- checkDisk ---
+// --- DiskCheck ---
 
 describe("checkDisk", () => {
 	test("returns formatted disk usage string", async () => {
-		monitor.volumes = [fakeVolume("/", 50)];
-		expect(await monitor.checkDisk()).toBe("Disk: 50%");
+		diskData = [fakeVolume("/", 50)];
+		const check = new DiskCheck(
+			{ enabled: true, usageThresholdPercent: 90, volumes: ["/"] },
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("Disk: 50%");
 	});
 
 	test("returns 'No volumes found' when no volumes match config paths", async () => {
-		monitor.volumes = [fakeVolume("/dev/sdb", 50)];
-		expect(await monitor.checkDisk()).toBe("No volumes found");
+		diskData = [fakeVolume("/dev/sdb", 50)];
+		const check = new DiskCheck(
+			{ enabled: true, usageThresholdPercent: 90, volumes: ["/"] },
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("No volumes found");
 	});
 
 	test("does not notify when usage is below threshold", async () => {
-		monitor.volumes = [fakeVolume("/", 85)];
-		await monitor.checkDisk();
+		diskData = [fakeVolume("/", 85)];
+		const check = new DiskCheck(
+			{ enabled: true, usageThresholdPercent: 90, volumes: ["/"] },
+			makeDeps(),
+		);
+		await check.run();
 		expect(notifySpy).not.toHaveBeenCalled();
 	});
 
 	test("opens incident immediately when disk usage exceeds threshold (no debounce)", async () => {
-		monitor.volumes = [fakeVolume("/", 95)];
-		await monitor.checkDisk();
+		diskData = [fakeVolume("/", 95)];
+		const check = new DiskCheck(
+			{ enabled: true, usageThresholdPercent: 90, volumes: ["/"] },
+			makeDeps(),
+		);
+		await check.run();
 		expect(incidentStoreMock.openIncident).toHaveBeenCalledTimes(1);
 		expect(notifySpy).toHaveBeenCalledTimes(1);
 		expect(notifySpy.mock.calls[0]?.[0]).toContain("95%");
 	});
 
-	test("aggregates usage across multiple matched volumes", async () => {
-		monitor.volumes = [fakeVolume("/", 40), fakeVolume("/dev/sdb", 80)];
-		expect(await monitor.checkDisk()).toBe("Disk: 40%");
+	test("only counts volumes matching configured paths", async () => {
+		diskData = [fakeVolume("/", 40), fakeVolume("/dev/sdb", 80)];
+		const check = new DiskCheck(
+			{ enabled: true, usageThresholdPercent: 90, volumes: ["/"] },
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("Disk: 40%");
 		expect(notifySpy).not.toHaveBeenCalled();
 	});
 });
 
-// --- checkTemperature ---
+// --- TemperatureCheck ---
 
 describe("checkTemperature", () => {
-	test("returns 'Temp: N/A' when temperature check is disabled (no readings on macOS)", async () => {
-		expect(await monitor.checkTemperature()).toBe("Temp: N/A");
+	test("returns 'Temp: N/A' when no readings available (disabled check, macOS)", async () => {
+		const check = new TemperatureCheck(
+			{
+				enabled: false,
+				cpuThresholdCelsius: 85,
+				gpuThresholdCelsius: 85,
+				consecutiveBreaches: 1,
+			},
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("Temp: N/A");
 	});
 
-	test("returns 'Temp: N/A' when no temp readings are available even if enabled", async () => {
-		(
-			monitor as unknown as { checks: { temperature: { enabled: boolean } } }
-		).checks.temperature.enabled = true;
+	test("returns 'Temp: N/A' when enabled but no readings available", async () => {
 		cpuTempData = { main: null, max: null };
 		graphicsData = { controllers: [] };
-		expect(await monitor.checkTemperature()).toBe("Temp: N/A");
+		const check = new TemperatureCheck(
+			{
+				enabled: true,
+				cpuThresholdCelsius: 85,
+				gpuThresholdCelsius: 85,
+				consecutiveBreaches: 1,
+			},
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("Temp: N/A");
 	});
 
 	test("returns CPU temp string when reading is available", async () => {
-		(
-			monitor as unknown as { checks: { temperature: { enabled: boolean } } }
-		).checks.temperature.enabled = true;
 		cpuTempData = { main: 72, max: 75 };
-		const result = await monitor.checkTemperature();
-		expect(result).toContain("75°C");
+		const check = new TemperatureCheck(
+			{
+				enabled: true,
+				cpuThresholdCelsius: 85,
+				gpuThresholdCelsius: 85,
+				consecutiveBreaches: 1,
+			},
+			makeDeps(),
+		);
+		expect(await check.run()).toContain("75°C");
 	});
 
 	test("opens incident when CPU temp exceeds threshold", async () => {
-		(
-			monitor as unknown as {
-				checks: {
-					temperature: {
-						enabled: boolean;
-						cpuThresholdCelsius: number;
-						gpuThresholdCelsius: number;
-						consecutiveBreaches: number;
-					};
-				};
-			}
-		).checks.temperature = {
-			enabled: true,
-			cpuThresholdCelsius: 70,
-			gpuThresholdCelsius: 85,
-			consecutiveBreaches: 1,
-		};
 		cpuTempData = { main: 75, max: 78 };
-		await monitor.checkTemperature();
+		const check = new TemperatureCheck(
+			{
+				enabled: true,
+				cpuThresholdCelsius: 70,
+				gpuThresholdCelsius: 85,
+				consecutiveBreaches: 1,
+			},
+			makeDeps(),
+		);
+		await check.run();
 		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith({
 			metric: "temp:cpu",
 			volume: null,
@@ -401,28 +507,18 @@ describe("checkTemperature", () => {
 	});
 
 	test("opens incident when GPU temp exceeds threshold", async () => {
-		(
-			monitor as unknown as {
-				checks: {
-					temperature: {
-						enabled: boolean;
-						cpuThresholdCelsius: number;
-						gpuThresholdCelsius: number;
-						consecutiveBreaches: number;
-					};
-				};
-			}
-		).checks.temperature = {
-			enabled: true,
-			cpuThresholdCelsius: 85,
-			gpuThresholdCelsius: 70,
-			consecutiveBreaches: 1,
-		};
 		cpuTempData = { main: null, max: null };
-		graphicsData = {
-			controllers: [{ name: "RTX4090", temperatureGpu: 80 }],
-		};
-		await monitor.checkTemperature();
+		graphicsData = { controllers: [{ name: "RTX4090", temperatureGpu: 80 }] };
+		const check = new TemperatureCheck(
+			{
+				enabled: true,
+				cpuThresholdCelsius: 85,
+				gpuThresholdCelsius: 70,
+				consecutiveBreaches: 1,
+			},
+			makeDeps(),
+		);
+		await check.run();
 		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith({
 			metric: "temp:gpu:RTX4090",
 			volume: null,
@@ -432,51 +528,46 @@ describe("checkTemperature", () => {
 	});
 });
 
-// --- checkGpu ---
+// --- GpuCheck ---
 
 describe("checkGpu", () => {
 	test("returns undefined when GPU check is disabled", async () => {
-		expect(await monitor.checkGpu()).toBeUndefined();
+		const check = new GpuCheck(
+			{ enabled: false, vramThresholdPercent: 90, consecutiveBreaches: 3 },
+			makeDeps(),
+		);
+		expect(await check.run()).toBeUndefined();
 	});
 
 	test("returns 'GPU: N/A' when no controllers have utilization data", async () => {
-		(
-			monitor as unknown as { checks: { gpu: { enabled: boolean } } }
-		).checks.gpu.enabled = true;
 		graphicsData = {
 			controllers: [{ name: "RTX4090", utilizationGpu: undefined }],
 		};
-		expect(await monitor.checkGpu()).toBe("GPU: N/A");
+		const check = new GpuCheck(
+			{ enabled: true, vramThresholdPercent: 90, consecutiveBreaches: 3 },
+			makeDeps(),
+		);
+		expect(await check.run()).toBe("GPU: N/A");
 	});
 
 	test("returns usage string when data is available", async () => {
-		(
-			monitor as unknown as { checks: { gpu: { enabled: boolean } } }
-		).checks.gpu.enabled = true;
 		graphicsData = { controllers: [{ name: "RTX4090", utilizationGpu: 45 }] };
-		const result = await monitor.checkGpu();
+		const check = new GpuCheck(
+			{ enabled: true, vramThresholdPercent: 90, consecutiveBreaches: 3 },
+			makeDeps(),
+		);
+		const result = await check.run();
 		expect(result).toContain("RTX4090");
 		expect(result).toContain("45%");
 	});
 
 	test("opens incident when GPU usage exceeds threshold", async () => {
-		(
-			monitor as unknown as {
-				checks: {
-					gpu: {
-						enabled: boolean;
-						vramThresholdPercent: number;
-						consecutiveBreaches: number;
-					};
-				};
-			}
-		).checks.gpu = {
-			enabled: true,
-			vramThresholdPercent: 80,
-			consecutiveBreaches: 1,
-		};
 		graphicsData = { controllers: [{ name: "RTX4090", utilizationGpu: 95 }] };
-		await monitor.checkGpu();
+		const check = new GpuCheck(
+			{ enabled: true, vramThresholdPercent: 80, consecutiveBreaches: 1 },
+			makeDeps(),
+		);
+		await check.run();
 		expect(incidentStoreMock.openIncident).toHaveBeenCalledWith({
 			metric: "gpu:RTX4090",
 			volume: null,
@@ -490,7 +581,7 @@ describe("checkGpu", () => {
 
 describe("runAllParallel", () => {
 	test("logs a combined status line containing all enabled check results", async () => {
-		monitor.volumes = [fakeVolume("/", 50)];
+		diskData = [fakeVolume("/", 50)];
 		const loggerSpy = spyOn(logger, "info").mockImplementation(
 			() => logger as never,
 		);
@@ -506,7 +597,7 @@ describe("runAllParallel", () => {
 	});
 
 	test("omits disabled checks from the status line", async () => {
-		monitor.volumes = [fakeVolume("/", 50)];
+		diskData = [fakeVolume("/", 50)];
 		const loggerSpy = spyOn(logger, "info").mockImplementation(
 			() => logger as never,
 		);
