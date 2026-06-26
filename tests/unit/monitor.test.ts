@@ -349,8 +349,8 @@ describe("checkDisk", () => {
 // --- checkTemperature ---
 
 describe("checkTemperature", () => {
-	test("returns undefined when temperature check is disabled", async () => {
-		expect(await monitor.checkTemperature()).toBeUndefined();
+	test("returns 'Temp: N/A' when temperature check is disabled (no readings on macOS)", async () => {
+		expect(await monitor.checkTemperature()).toBe("Temp: N/A");
 	});
 
 	test("returns 'Temp: N/A' when no temp readings are available even if enabled", async () => {
@@ -514,8 +514,8 @@ describe("runAllParallel", () => {
 		const statusLine = loggerSpy.mock.calls
 			.map((args) => String(args[0]))
 			.find((line) => line.includes("CPU:"));
-		// Temperature and GPU are disabled in mock config
-		expect(statusLine).not.toContain("Temp:");
+		// Temperature always logged (N/A when no readings); GPU disabled → absent
+		expect(statusLine).toContain("Temp: N/A");
 		expect(statusLine).not.toContain("GPU:");
 		loggerSpy.mockRestore();
 	});

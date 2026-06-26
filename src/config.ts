@@ -1,3 +1,4 @@
+import { hostname } from "node:os";
 import { z } from "zod";
 import { ENV_VARS, type EnvVarType } from "./lib/env";
 import { logger, setLogLevel } from "./lib/logger";
@@ -124,6 +125,10 @@ const DatabaseSchema = z.object({
 
 export const ConfigSchema = z.object({
 	$schema: z.string().optional(),
+	machineName: z
+		.string({ error: "Must be a string" })
+		.min(1, "Machine name cannot be empty")
+		.default(() => hostname()),
 	logLevel: z
 		.enum(["trace", "debug", "info", "warn", "error"], {
 			error: 'Must be one of: "trace", "debug", "info", "warn", "error"',

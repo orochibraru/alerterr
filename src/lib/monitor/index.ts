@@ -60,6 +60,7 @@ export class Monitor {
 			reminderMsg,
 			recoveryMsg,
 		} = opts;
+		const tag = `[${config.machineName}]`;
 		const key = volume != null ? `${metric}:${volume}` : metric;
 		const activeIncident = this.incidentStore.getActiveIncident(
 			metric,
@@ -78,7 +79,7 @@ export class Monitor {
 				);
 				if (elapsed > this.reminderIntervalMs) {
 					logger.debug(`[${key}] reminder interval exceeded, re-alerting`);
-					await this.notifiers.alert(reminderMsg);
+					await this.notifiers.alert(`${tag} ${reminderMsg}`);
 					this.incidentStore.recordNotification({
 						incidentId: activeIncident.id,
 						type: "reminder",
@@ -98,7 +99,7 @@ export class Monitor {
 						value,
 						threshold,
 					});
-					await this.notifiers.alert(openMsg);
+					await this.notifiers.alert(`${tag} ${openMsg}`);
 					this.incidentStore.recordNotification({
 						incidentId: incident.id,
 						type: "alert",
@@ -114,7 +115,7 @@ export class Monitor {
 					`[${key}] value normalised, resolving incident #${activeIncident.id}`,
 				);
 				this.incidentStore.resolveIncident(activeIncident.id);
-				await this.notifiers.alert(recoveryMsg);
+				await this.notifiers.alert(`${tag} ${recoveryMsg}`);
 				this.incidentStore.recordNotification({
 					incidentId: activeIncident.id,
 					type: "recovery",

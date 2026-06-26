@@ -18,6 +18,14 @@ export const ENV_VARS: Record<string, EnvVarDef> = {
 		default: "info",
 		example: "debug",
 	},
+	BABA_MACHINE_NAME: {
+		path: ["machineName"],
+		type: "string",
+		description:
+			"Display name for this machine, prepended to every alert message.",
+		default: "(system hostname)",
+		example: "nas-01",
+	},
 	BABA_INTERVAL_SECONDS: {
 		path: ["intervalSeconds"],
 		type: "number",

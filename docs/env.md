@@ -6,6 +6,7 @@ Values are applied **before** Zod validation, so type coercion and defaults stil
 | Variable | Type | Default | Example | Description |
 |----------|------|---------|---------|-------------|
 | `BABA_LOG_LEVEL` | string | `info` | `debug` | Log verbosity. One of: `trace`, `debug`, `info`, `warn`, `error`. |
+| `BABA_MACHINE_NAME` | string | `(system hostname)` | `nas-01` | Display name for this machine, prepended to every alert message. |
 | `BABA_INTERVAL_SECONDS` | number | `60` | `30` | Seconds between monitor check cycles. |
 | `BABA_REMINDER_INTERVAL_MINUTES` | number | `30` | `60` | Minutes before re-alerting for an ongoing incident. |
 | `BABA_DATABASE_PATH` | string | `./tmp/baba.db` | `/data/baba.db` | Path to the SQLite incident database. |
