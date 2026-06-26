@@ -23,7 +23,7 @@ describe("ConfigSchema", () => {
 			if (r.success) {
 				expect(r.data.checks.cpu.enabled).toBe(true);
 				expect(r.data.checks.cpu.usageThresholdPercent).toBe(90);
-				expect(r.data.checks.cpu.tempThresholdCelsius).toBe(85);
+				expect(r.data.checks.cpu.consecutiveBreaches).toBe(3);
 			}
 		});
 
@@ -33,6 +33,7 @@ describe("ConfigSchema", () => {
 			if (r.success) {
 				expect(r.data.checks.load.enabled).toBe(true);
 				expect(r.data.checks.load.threshold).toBe(8);
+				expect(r.data.checks.load.consecutiveBreaches).toBe(3);
 			}
 		});
 
@@ -42,6 +43,7 @@ describe("ConfigSchema", () => {
 			if (r.success) {
 				expect(r.data.checks.memory.enabled).toBe(true);
 				expect(r.data.checks.memory.usageThresholdPercent).toBe(90);
+				expect(r.data.checks.memory.consecutiveBreaches).toBe(3);
 			}
 		});
 
@@ -53,6 +55,39 @@ describe("ConfigSchema", () => {
 				expect(r.data.checks.disk.usageThresholdPercent).toBe(90);
 				expect(r.data.checks.disk.volumes).toEqual(["/"]);
 			}
+		});
+
+		test("applies default temperature check values", () => {
+			const r = ConfigSchema.safeParse(minimal);
+			expect(r.success).toBe(true);
+			if (r.success) {
+				expect(r.data.checks.temperature.enabled).toBe(false);
+				expect(r.data.checks.temperature.cpuThresholdCelsius).toBe(85);
+				expect(r.data.checks.temperature.gpuThresholdCelsius).toBe(85);
+				expect(r.data.checks.temperature.consecutiveBreaches).toBe(3);
+			}
+		});
+
+		test("applies default gpu check values", () => {
+			const r = ConfigSchema.safeParse(minimal);
+			expect(r.success).toBe(true);
+			if (r.success) {
+				expect(r.data.checks.gpu.enabled).toBe(false);
+				expect(r.data.checks.gpu.vramThresholdPercent).toBe(90);
+				expect(r.data.checks.gpu.consecutiveBreaches).toBe(3);
+			}
+		});
+
+		test("applies default reminderIntervalMinutes of 30", () => {
+			const r = ConfigSchema.safeParse(minimal);
+			expect(r.success).toBe(true);
+			if (r.success) expect(r.data.reminderIntervalMinutes).toBe(30);
+		});
+
+		test("applies default database path", () => {
+			const r = ConfigSchema.safeParse(minimal);
+			expect(r.success).toBe(true);
+			if (r.success) expect(r.data.database.path).toBe("./tmp/baba.db");
 		});
 	});
 
@@ -80,7 +115,7 @@ describe("ConfigSchema", () => {
 			if (r.success) {
 				expect(r.data.checks.cpu.usageThresholdPercent).toBe(70);
 				expect(r.data.checks.cpu.enabled).toBe(true);
-				expect(r.data.checks.cpu.tempThresholdCelsius).toBe(85);
+				expect(r.data.checks.cpu.consecutiveBreaches).toBe(3);
 			}
 		});
 
@@ -330,7 +365,7 @@ describe("ConfigSchema", () => {
 });
 
 describe("loadConfig", () => {
-	const TMP = "/tmp/homelab-alerter-test-config.json";
+	const TMP = "/tmp/baba-test-config.json";
 
 	afterEach(async () => {
 		try {

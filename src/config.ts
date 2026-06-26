@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { logger } from "./lib/logger";
 import { discordNotifierSchema } from "./lib/notifiers/discord";
 import { telegramNotifierSchema } from "./lib/notifiers/telegram";
 
 // To add a new notifier:
 //   1. Create src/lib/notifiers/<name>.ts — export its Zod schema and class
 //   2. Import the schema here and add it to the array below
-//   3. Add an instantiation branch in src/lib/notify.ts
+//   3. Add an instantiation branch in src/lib/notifiers/index.ts
 const NotifierSchema = z.discriminatedUnion(
 	"type",
 	[discordNotifierSchema, telegramNotifierSchema],
@@ -15,6 +16,12 @@ const NotifierSchema = z.discriminatedUnion(
 	},
 );
 
+const consecutiveBreachesField = z
+	.number({ error: "Must be a number" })
+	.int("Must be a whole number")
+	.min(1, "Must be at least 1")
+	.default(3);
+
 const CpuCheckSchema = z.object({
 	enabled: z.boolean({ error: "Must be true or false" }).default(true),
 	usageThresholdPercent: z
@@ -22,10 +29,7 @@ const CpuCheckSchema = z.object({
 		.min(0, "Must be at least 0")
 		.max(100, "Must be at most 100")
 		.default(90),
-	tempThresholdCelsius: z
-		.number({ error: "Must be a number (temperature in °C)" })
-		.positive("Must be a positive temperature in °C (e.g. 85)")
-		.default(85),
+	consecutiveBreaches: consecutiveBreachesField,
 });
 
 export type CpuChecks = z.infer<typeof CpuCheckSchema>;
@@ -38,6 +42,7 @@ const LoadCheckSchema = z.object({
 			"Must be a positive number representing the 1-minute load average (number of processes competing for CPU). A good rule of thumb: set to the number of CPU cores on your machine (e.g. 8.0 for an 8-core system)",
 		)
 		.default(8.0),
+	consecutiveBreaches: consecutiveBreachesField,
 });
 
 export type LoadChecks = z.infer<typeof LoadCheckSchema>;
@@ -49,6 +54,7 @@ const MemoryCheckSchema = z.object({
 		.min(0, "Must be at least 0")
 		.max(100, "Must be at most 100")
 		.default(90),
+	consecutiveBreaches: consecutiveBreachesField,
 });
 
 export type MemoryChecks = z.infer<typeof MemoryCheckSchema>;
@@ -70,14 +76,50 @@ const DiskCheckSchema = z.object({
 
 export type DiskChecks = z.infer<typeof DiskCheckSchema>;
 
+const TemperatureCheckSchema = z.object({
+	enabled: z.boolean({ error: "Must be true or false" }).default(false),
+	cpuThresholdCelsius: z
+		.number({ error: "Must be a number (temperature in °C)" })
+		.positive("Must be a positive temperature in °C (e.g. 85)")
+		.default(85),
+	gpuThresholdCelsius: z
+		.number({ error: "Must be a number (temperature in °C)" })
+		.positive("Must be a positive temperature in °C (e.g. 85)")
+		.default(85),
+	consecutiveBreaches: consecutiveBreachesField,
+});
+
+export type TemperatureChecks = z.infer<typeof TemperatureCheckSchema>;
+
+const GpuCheckSchema = z.object({
+	enabled: z.boolean({ error: "Must be true or false" }).default(false),
+	vramThresholdPercent: z
+		.number({ error: "Must be a number" })
+		.min(0, "Must be at least 0")
+		.max(100, "Must be at most 100")
+		.default(90),
+	consecutiveBreaches: consecutiveBreachesField,
+});
+
+export type GpuChecks = z.infer<typeof GpuCheckSchema>;
+
 const ChecksSchema = z.object({
 	cpu: CpuCheckSchema.default(CpuCheckSchema.parse({})),
 	load: LoadCheckSchema.default(LoadCheckSchema.parse({})),
 	memory: MemoryCheckSchema.default(MemoryCheckSchema.parse({})),
 	disk: DiskCheckSchema.default(DiskCheckSchema.parse({})),
+	temperature: TemperatureCheckSchema.default(TemperatureCheckSchema.parse({})),
+	gpu: GpuCheckSchema.default(GpuCheckSchema.parse({})),
 });
 
 export type Checks = z.infer<typeof ChecksSchema>;
+
+const DatabaseSchema = z.object({
+	path: z
+		.string({ error: "Must be a string" })
+		.min(1, "Database path cannot be empty")
+		.default("./tmp/baba.db"),
+});
 
 export const ConfigSchema = z.object({
 	$schema: z.string().optional(),
@@ -85,6 +127,13 @@ export const ConfigSchema = z.object({
 		.number({ error: "Must be a number" })
 		.positive("Must be a positive number of seconds between checks (e.g. 60)")
 		.default(60),
+	reminderIntervalMinutes: z
+		.number({ error: "Must be a number" })
+		.positive(
+			"Must be a positive number of minutes between re-alerts for ongoing incidents (e.g. 30)",
+		)
+		.default(30),
+	database: DatabaseSchema.default(DatabaseSchema.parse({})),
 	checks: ChecksSchema.default(ChecksSchema.parse({})),
 	notifiers: z
 		.array(NotifierSchema, { error: "Must be an array of notifier objects" })
@@ -96,14 +145,14 @@ export type Config = z.infer<typeof ConfigSchema>;
 export let config: Config;
 
 export async function loadConfig(path = "./config.json"): Promise<Config> {
-	console.log(`Loading config from ${path}...`);
+	logger.info(`Loading config from ${path}...`);
 	const file = Bun.file(path);
 	if (!(await file.exists())) {
 		throw new Error(
 			`Config file not found at "${path}". Copy config.example.json to config.json and fill it in.`,
 		);
 	}
-	console.log("Parsing config...");
+	logger.info("Parsing config...");
 	const raw = JSON.parse(await file.text()) as unknown;
 	const result = ConfigSchema.safeParse(raw);
 	if (!result.success) {
@@ -112,7 +161,7 @@ export async function loadConfig(path = "./config.json"): Promise<Config> {
 			.join("\n");
 		throw new Error(`Invalid config:\n${issues}`);
 	}
-	console.log("Config parsed successfully.");
+	logger.info("Config parsed successfully.");
 	config = result.data;
 	return config;
 }

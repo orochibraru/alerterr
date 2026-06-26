@@ -10,25 +10,58 @@
 			"type": "number",
 			"exclusiveMinimum": 0
 		},
+		"reminderIntervalMinutes": {
+			"default": 30,
+			"type": "number",
+			"exclusiveMinimum": 0
+		},
+		"database": {
+			"default": {
+				"path": "./tmp/baba.db"
+			},
+			"type": "object",
+			"properties": {
+				"path": {
+					"default": "./tmp/baba.db",
+					"type": "string",
+					"minLength": 1
+				}
+			},
+			"required": ["path"],
+			"additionalProperties": false
+		},
 		"checks": {
 			"default": {
 				"cpu": {
 					"enabled": true,
 					"usageThresholdPercent": 90,
-					"tempThresholdCelsius": 85
+					"consecutiveBreaches": 3
 				},
 				"load": {
 					"enabled": true,
-					"threshold": 8
+					"threshold": 8,
+					"consecutiveBreaches": 3
 				},
 				"memory": {
 					"enabled": true,
-					"usageThresholdPercent": 90
+					"usageThresholdPercent": 90,
+					"consecutiveBreaches": 3
 				},
 				"disk": {
 					"enabled": true,
 					"usageThresholdPercent": 90,
 					"volumes": ["/"]
+				},
+				"temperature": {
+					"enabled": false,
+					"cpuThresholdCelsius": 85,
+					"gpuThresholdCelsius": 85,
+					"consecutiveBreaches": 3
+				},
+				"gpu": {
+					"enabled": false,
+					"vramThresholdPercent": 90,
+					"consecutiveBreaches": 3
 				}
 			},
 			"type": "object",
@@ -37,7 +70,7 @@
 					"default": {
 						"enabled": true,
 						"usageThresholdPercent": 90,
-						"tempThresholdCelsius": 85
+						"consecutiveBreaches": 3
 					},
 					"type": "object",
 					"properties": {
@@ -51,23 +84,25 @@
 							"minimum": 0,
 							"maximum": 100
 						},
-						"tempThresholdCelsius": {
-							"default": 85,
-							"type": "number",
-							"exclusiveMinimum": 0
+						"consecutiveBreaches": {
+							"default": 3,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
 						}
 					},
 					"required": [
 						"enabled",
 						"usageThresholdPercent",
-						"tempThresholdCelsius"
+						"consecutiveBreaches"
 					],
 					"additionalProperties": false
 				},
 				"load": {
 					"default": {
 						"enabled": true,
-						"threshold": 8
+						"threshold": 8,
+						"consecutiveBreaches": 3
 					},
 					"type": "object",
 					"properties": {
@@ -79,15 +114,22 @@
 							"default": 8,
 							"type": "number",
 							"exclusiveMinimum": 0
+						},
+						"consecutiveBreaches": {
+							"default": 3,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
 						}
 					},
-					"required": ["enabled", "threshold"],
+					"required": ["enabled", "threshold", "consecutiveBreaches"],
 					"additionalProperties": false
 				},
 				"memory": {
 					"default": {
 						"enabled": true,
-						"usageThresholdPercent": 90
+						"usageThresholdPercent": 90,
+						"consecutiveBreaches": 3
 					},
 					"type": "object",
 					"properties": {
@@ -100,9 +142,19 @@
 							"type": "number",
 							"minimum": 0,
 							"maximum": 100
+						},
+						"consecutiveBreaches": {
+							"default": 3,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
 						}
 					},
-					"required": ["enabled", "usageThresholdPercent"],
+					"required": [
+						"enabled",
+						"usageThresholdPercent",
+						"consecutiveBreaches"
+					],
 					"additionalProperties": false
 				},
 				"disk": {
@@ -134,9 +186,79 @@
 					},
 					"required": ["enabled", "usageThresholdPercent", "volumes"],
 					"additionalProperties": false
+				},
+				"temperature": {
+					"default": {
+						"enabled": false,
+						"cpuThresholdCelsius": 85,
+						"gpuThresholdCelsius": 85,
+						"consecutiveBreaches": 3
+					},
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"default": false,
+							"type": "boolean"
+						},
+						"cpuThresholdCelsius": {
+							"default": 85,
+							"type": "number",
+							"exclusiveMinimum": 0
+						},
+						"gpuThresholdCelsius": {
+							"default": 85,
+							"type": "number",
+							"exclusiveMinimum": 0
+						},
+						"consecutiveBreaches": {
+							"default": 3,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
+						}
+					},
+					"required": [
+						"enabled",
+						"cpuThresholdCelsius",
+						"gpuThresholdCelsius",
+						"consecutiveBreaches"
+					],
+					"additionalProperties": false
+				},
+				"gpu": {
+					"default": {
+						"enabled": false,
+						"vramThresholdPercent": 90,
+						"consecutiveBreaches": 3
+					},
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"default": false,
+							"type": "boolean"
+						},
+						"vramThresholdPercent": {
+							"default": 90,
+							"type": "number",
+							"minimum": 0,
+							"maximum": 100
+						},
+						"consecutiveBreaches": {
+							"default": 3,
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
+						}
+					},
+					"required": [
+						"enabled",
+						"vramThresholdPercent",
+						"consecutiveBreaches"
+					],
+					"additionalProperties": false
 				}
 			},
-			"required": ["cpu", "load", "memory", "disk"],
+			"required": ["cpu", "load", "memory", "disk", "temperature", "gpu"],
 			"additionalProperties": false
 		},
 		"notifiers": {
@@ -182,6 +304,12 @@
 			}
 		}
 	},
-	"required": ["intervalSeconds", "checks", "notifiers"],
+	"required": [
+		"intervalSeconds",
+		"reminderIntervalMinutes",
+		"database",
+		"checks",
+		"notifiers"
+	],
 	"additionalProperties": false
 }

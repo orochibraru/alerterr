@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ConfigSchema } from "../src/config";
+import { logger } from "../src/lib/logger";
 
 const schema = z.toJSONSchema(ConfigSchema, {
 	target: "draft-7",
@@ -10,4 +11,4 @@ await Bun.write(
 	"./schema/config.schema.json",
 	`${JSON.stringify(schema, null, 2)}\n`,
 );
-console.log("Generated config.schema.json");
+logger.info("Generated config.schema.json");

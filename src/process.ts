@@ -1,4 +1,7 @@
 import { type Config, loadConfig } from "./config";
+import { getDb, initDb } from "./lib/db";
+import { IncidentStore } from "./lib/incident-store";
+import { logger } from "./lib/logger";
 import { Monitor } from "./lib/monitor";
 
 export class Process {
@@ -13,7 +16,8 @@ export class Process {
 
 	private async lazyInit() {
 		this.config = await loadConfig();
-		this.monitor = new Monitor();
+		initDb(this.config.database.path);
+		this.monitor = new Monitor(new IncidentStore(getDb()));
 	}
 
 	private isOneOfTenRuns() {
@@ -26,9 +30,9 @@ export class Process {
 		}
 
 		try {
-			console.log("Starting up...");
+			logger.info("Starting up...");
 			await this.monitor.runAllParallel();
-			console.log("Alerter started.");
+			logger.info("Alerter started.");
 		} catch (error) {
 			console.error("Error during startup:", error);
 			process.exit(1);
@@ -65,7 +69,7 @@ export class Process {
 	}
 
 	public shutdown() {
-		console.log("Alerter shutting down...");
+		logger.info("Alerter shutting down...");
 		if (this.interval) {
 			clearInterval(this.interval);
 		}
