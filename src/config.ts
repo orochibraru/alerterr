@@ -2,11 +2,9 @@ import { z } from "zod";
 
 const DiscordNotifierSchema = z.object({
 	type: z.literal("discord"),
-	webhookUrl: z
-		.string()
-		.url(
-			'Must be a valid Discord webhook URL (e.g. "https://discord.com/api/webhooks/<id>/<token>")',
-		),
+	webhookUrl: z.url(
+		'Must be a valid Discord webhook URL (e.g. "https://discord.com/api/webhooks/<id>/<token>")',
+	),
 });
 
 const NotifierSchema = z.discriminatedUnion("type", [DiscordNotifierSchema]);
@@ -24,15 +22,19 @@ const CpuCheckSchema = z.object({
 		.default(85),
 });
 
+export type CpuChecks = z.infer<typeof CpuCheckSchema>;
+
 const LoadCheckSchema = z.object({
 	enabled: z.boolean({ error: "Must be true or false" }).default(true),
 	threshold: z
 		.number({ error: "Must be a number" })
 		.positive(
-			'Must be a positive number representing Linux load average (e.g. 8.0 means "8 processes active on average")',
+			"Must be a positive number representing the 1-minute load average (number of processes competing for CPU). A good rule of thumb: set to the number of CPU cores on your machine (e.g. 8.0 for an 8-core system)",
 		)
 		.default(8.0),
 });
+
+export type LoadChecks = z.infer<typeof LoadCheckSchema>;
 
 const MemoryCheckSchema = z.object({
 	enabled: z.boolean({ error: "Must be true or false" }).default(true),
@@ -42,6 +44,8 @@ const MemoryCheckSchema = z.object({
 		.max(100, "Must be at most 100")
 		.default(90),
 });
+
+export type MemoryChecks = z.infer<typeof MemoryCheckSchema>;
 
 const DiskCheckSchema = z.object({
 	enabled: z.boolean({ error: "Must be true or false" }).default(true),
@@ -58,12 +62,16 @@ const DiskCheckSchema = z.object({
 		.default(["/"]),
 });
 
+export type DiskChecks = z.infer<typeof DiskCheckSchema>;
+
 const ChecksSchema = z.object({
 	cpu: CpuCheckSchema.default(CpuCheckSchema.parse({})),
 	load: LoadCheckSchema.default(LoadCheckSchema.parse({})),
 	memory: MemoryCheckSchema.default(MemoryCheckSchema.parse({})),
 	disk: DiskCheckSchema.default(DiskCheckSchema.parse({})),
 });
+
+export type Checks = z.infer<typeof ChecksSchema>;
 
 export const ConfigSchema = z.object({
 	$schema: z.string().optional(),
@@ -79,13 +87,17 @@ export const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
+export let config: Config;
+
 export async function loadConfig(path = "./config.json"): Promise<Config> {
+	console.log(`Loading config from ${path}...`);
 	const file = Bun.file(path);
 	if (!(await file.exists())) {
 		throw new Error(
 			`Config file not found at "${path}". Copy config.example.json to config.json and fill it in.`,
 		);
 	}
+	console.log("Parsing config...");
 	const raw = JSON.parse(await file.text()) as unknown;
 	const result = ConfigSchema.safeParse(raw);
 	if (!result.success) {
@@ -94,5 +106,7 @@ export async function loadConfig(path = "./config.json"): Promise<Config> {
 			.join("\n");
 		throw new Error(`Invalid config:\n${issues}`);
 	}
-	return result.data;
+	console.log("Config parsed successfully.");
+	config = result.data;
+	return config;
 }

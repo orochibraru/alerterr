@@ -4,16 +4,17 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"dev": "bun run --hot ./index.ts",
-		"schema": "bun run generate-schema.ts",
+		"dev": "bun run --hot ./src/index.ts",
 		"lint": "biome check .",
 		"lint:fix": "biome check --fix .",
-		"gen:schema": "bun run generate-schema.ts"
+		"gen:schema": "bun run scripts/generate-schema.ts",
+		"prepare": "husky"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.1",
 		"@types/bun": "^1.3.14",
-		"@types/node": "^26.0.1"
+		"@types/node": "^26.0.1",
+		"husky": "^9.1.7"
 	},
 	"peerDependencies": {
 		"typescript": "^5"

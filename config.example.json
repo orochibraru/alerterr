@@ -1,5 +1,5 @@
 {
-	"$schema": "./config.schema.json",
+	"$schema": "./schema/config.schema.json",
 	"intervalSeconds": 60,
 	"checks": {
 		"cpu": {
