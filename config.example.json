@@ -1,0 +1,30 @@
+{
+	"$schema": "./config.schema.json",
+	"intervalSeconds": 60,
+	"checks": {
+		"cpu": {
+			"enabled": true,
+			"usageThresholdPercent": 90,
+			"tempThresholdCelsius": 85
+		},
+		"load": {
+			"enabled": true,
+			"threshold": 8.0
+		},
+		"memory": {
+			"enabled": true,
+			"usageThresholdPercent": 90
+		},
+		"disk": {
+			"enabled": true,
+			"usageThresholdPercent": 90,
+			"paths": ["/"]
+		}
+	},
+	"notifiers": [
+		{
+			"type": "discord",
+			"webhookUrl": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
+		}
+	]
+}
