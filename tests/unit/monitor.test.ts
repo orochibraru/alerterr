@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { Systeminformation } from "systeminformation";
 
 // --- Mutable mock state (closures keep references, so tests can reassign) ---
@@ -180,5 +180,23 @@ describe("checkDisk", () => {
 		const result = await monitor.checkDisk();
 		expect(result).toBe("Disk: 40%");
 		expect(notifySpy).not.toHaveBeenCalled();
+	});
+});
+
+// --- runAllParallel ---
+
+describe("runAllParallel", () => {
+	test("logs a combined status line containing all check results", async () => {
+		monitor.volumes = [fakeVolume("/", 50)];
+		const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
+		await monitor.runAllParallel();
+		const statusLine = consoleSpy.mock.calls
+			.map((args) => String(args[0]))
+			.find((line) => line.includes("CPU:"));
+		expect(statusLine).toBeDefined();
+		expect(statusLine).toContain("Load:");
+		expect(statusLine).toContain("Memory:");
+		expect(statusLine).toContain("Disk:");
+		consoleSpy.mockRestore();
 	});
 });

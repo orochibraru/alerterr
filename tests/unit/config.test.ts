@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
-import { ConfigSchema } from "../../src/config";
+import { afterEach, describe, expect, test } from "bun:test";
+import { unlink } from "node:fs/promises";
+import { ConfigSchema, loadConfig } from "../../src/config";
 
 const VALID_WEBHOOK =
 	"https://discord.com/api/webhooks/123456789/abcdefghijklmno";
@@ -216,5 +217,53 @@ describe("ConfigSchema", () => {
 				expect(r.error.issues[0]?.message).toBe("Must be a number");
 			}
 		});
+	});
+});
+
+describe("loadConfig", () => {
+	const TMP = "/tmp/homelab-alerter-test-config.json";
+
+	afterEach(async () => {
+		try {
+			await unlink(TMP);
+		} catch {}
+	});
+
+	test("parses and returns a valid config file", async () => {
+		await Bun.write(
+			TMP,
+			JSON.stringify({
+				notifiers: [{ type: "discord", webhookUrl: VALID_WEBHOOK }],
+			}),
+		);
+		const config = await loadConfig(TMP);
+		expect(config.intervalSeconds).toBe(60);
+		expect(config.notifiers).toHaveLength(1);
+		expect(config.notifiers[0]?.type).toBe("discord");
+	});
+
+	test("applies schema defaults when optional fields are omitted", async () => {
+		await Bun.write(
+			TMP,
+			JSON.stringify({
+				notifiers: [{ type: "discord", webhookUrl: VALID_WEBHOOK }],
+			}),
+		);
+		const config = await loadConfig(TMP);
+		expect(config.checks.cpu.usageThresholdPercent).toBe(90);
+		expect(config.checks.disk.enabled).toBe(true);
+	});
+
+	test("throws when config file does not exist", async () => {
+		expect(loadConfig("/nonexistent/path/config.json")).rejects.toThrow(
+			"Config file not found",
+		);
+	});
+
+	test("throws with a formatted message listing all validation errors", async () => {
+		await Bun.write(TMP, JSON.stringify({ notifiers: [] }));
+		expect(loadConfig(TMP)).rejects.toThrow(
+			"At least one notifier must be configured",
+		);
 	});
 });
