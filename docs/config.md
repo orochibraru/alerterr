@@ -7,7 +7,7 @@ Every field is optional (defaults are applied) except `notifiers`.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `$schema` | string | — | — |
-| `machineName` | string | `Nicolass-Mac-mini.local` | — |
+| `machineName` | string | — | — |
 | `logLevel` | `trace` \| `debug` \| `info` \| `warn` \| `error` | `info` | — |
 | `intervalSeconds` | number | `60` | — |
 | `reminderIntervalMinutes` | number | `30` | — |

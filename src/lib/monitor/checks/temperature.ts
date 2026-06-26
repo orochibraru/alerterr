@@ -19,7 +19,7 @@ export class TemperatureCheck extends BaseCheck {
 
 		const parts: string[] = [];
 
-		const cpuMax = cpuTemp.max ?? cpuTemp.main;
+		const cpuMax = this.resolveCpuTemp(cpuTemp);
 		if (cpuMax != null) {
 			logger.debug(`CPU temp: ${cpuMax}°C`);
 			if (this.cfg.enabled) {
@@ -59,5 +59,23 @@ export class TemperatureCheck extends BaseCheck {
 
 		if (parts.length === 0) return "Temp: N/A";
 		return `Temp: ${parts.join(" | ")}`;
+	}
+
+	// SI returns -1 on some platforms (e.g. macOS) to indicate "unavailable",
+	// and null on others. We try max → main → highest core → highest socket,
+	// treating anything ≤ 0 as absent.
+	private resolveCpuTemp(
+		cpuTemp: Awaited<ReturnType<typeof si.cpuTemperature>>,
+	): number | null {
+		const valid = (n: number | null | undefined): number | null =>
+			n != null && n > 0 ? n : null;
+
+		return (
+			valid(cpuTemp.max) ??
+			valid(cpuTemp.main) ??
+			(cpuTemp.cores.length > 0 ? valid(Math.max(...cpuTemp.cores)) : null) ??
+			(cpuTemp.socket.length > 0 ? valid(Math.max(...cpuTemp.socket)) : null) ??
+			valid(cpuTemp.chipset)
+		);
 	}
 }

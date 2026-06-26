@@ -6,7 +6,6 @@
       "type": "string"
     },
     "machineName": {
-      "default": "Nicolass-Mac-mini.local",
       "type": "string",
       "minLength": 1
     },
