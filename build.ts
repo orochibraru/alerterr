@@ -50,7 +50,7 @@ async function main() {
 		for (const target of targets) {
 			console.log(`Building ${target}...`);
 			const res = await Bun.build({
-				entrypoints: ["./index.ts"],
+				entrypoints: ["./src/index.ts"],
 				compile: {
 					target: target,
 				},

@@ -9,7 +9,9 @@ COPY . .
 
 RUN bun build --compile --outfile /app/alerterr ./src/index.ts
 
-FROM debian:latest
+FROM alpine:latest
+
+RUN apk add --no-cache libstdc++ libgcc
 
 WORKDIR /app
 
