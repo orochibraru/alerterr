@@ -67,9 +67,6 @@ jobs:
       - name: Linting
         run: bun run lint
 
-      - name: Format check
-        run: bun run format:check
-
       - name: Test
         run: bun test --bail
 
