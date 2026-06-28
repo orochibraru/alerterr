@@ -1,4 +1,4 @@
-import { config } from "../../config";
+import { getConfig } from "../../config";
 import { IncidentStore } from "../incident-store";
 import { logger } from "../logger";
 import { Notifiers } from "../notifiers";
@@ -16,6 +16,7 @@ export class Monitor {
 	private readonly breachCounter = new Map<string, number>();
 
 	constructor() {
+		const config = getConfig();
 		this.notifiers = new Notifiers();
 		const deps = {
 			incidentStore: new IncidentStore(),

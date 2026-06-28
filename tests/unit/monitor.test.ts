@@ -47,27 +47,56 @@ mock.module("../../src/lib/notifiers", () => ({
 	},
 }));
 
-mock.module("../../src/config", () => ({
-	config: {
-		machineName: "test-host",
-		reminderIntervalMinutes: 30,
-		checks: {
-			cpu: { enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
-			load: { enabled: true, threshold: 8.0, consecutiveBreaches: 1 },
-			memory: {
-				enabled: true,
-				usageThresholdPercent: 90,
-				consecutiveBreaches: 1,
-			},
-			disk: { enabled: true, usageThresholdPercent: 90, volumes: ["/"] },
-			temperature: {
-				enabled: false,
-				cpuThresholdCelsius: 85,
-				gpuThresholdCelsius: 85,
-				consecutiveBreaches: 2,
-			},
-			gpu: { enabled: false, vramThresholdPercent: 90, consecutiveBreaches: 3 },
+const unitCfg = {
+	machineName: "test-host",
+	reminderIntervalMinutes: 30,
+	checks: {
+		cpu: { enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
+		load: { enabled: true, threshold: 8.0, consecutiveBreaches: 1 },
+		memory: {
+			enabled: true,
+			usageThresholdPercent: 90,
+			consecutiveBreaches: 1,
 		},
+		disk: { enabled: true, usageThresholdPercent: 90, volumes: ["/"] },
+		temperature: {
+			enabled: false,
+			cpuThresholdCelsius: 85,
+			gpuThresholdCelsius: 85,
+			consecutiveBreaches: 2,
+		},
+		gpu: { enabled: false, vramThresholdPercent: 90, consecutiveBreaches: 3 },
+	},
+};
+
+mock.module("../../src/config", () => ({
+	config: unitCfg,
+	getConfig: () => unitCfg,
+}));
+
+mock.module("../../src/lib/incident-store", () => ({
+	IncidentStore: class {
+		getActiveIncident(metric: string, volume?: string | null) {
+			return incidentStoreMock.getActiveIncident(metric, volume);
+		}
+		openIncident(opts: OpenIncidentOpts) {
+			return incidentStoreMock.openIncident(opts);
+		}
+		resolveIncident(id: number) {
+			return incidentStoreMock.resolveIncident(id);
+		}
+		recordNotification(opts: RecordNotificationOpts) {
+			return incidentStoreMock.recordNotification(opts);
+		}
+		getLastNotification(id: number) {
+			return incidentStoreMock.getLastNotification(id);
+		}
+		listIncidents() {
+			return incidentStoreMock.listIncidents();
+		}
+		getIncident(id: number) {
+			return incidentStoreMock.getIncident(id);
+		}
 	},
 }));
 
@@ -116,8 +145,8 @@ const incidentStoreMock = {
 	resolveIncident: mock((_id: number) => {}),
 	recordNotification: mock((_opts: RecordNotificationOpts) => {}),
 	getLastNotification: mock((_id: number) => null as Notification | null),
-	listIncidents: mock(() => []),
-	getIncident: mock(() => null),
+	listIncidents: mock((_limit?: number) => []),
+	getIncident: mock((_id: number) => null),
 };
 
 // --- Shared deps factory ---
@@ -151,7 +180,7 @@ beforeEach(async () => {
 	incidentStoreMock.openIncident.mockImplementation(() => fakeIncident());
 	incidentStoreMock.getLastNotification.mockImplementation(() => null);
 
-	monitor = new Monitor(incidentStoreMock as unknown as IncidentStore);
+	monitor = new Monitor();
 });
 
 // --- CpuCheck ---

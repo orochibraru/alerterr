@@ -153,7 +153,7 @@ export const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
-export let config: Config;
+let config: Config;
 
 // ── Environment variable helpers ─────────────────────────────────────────────
 
@@ -227,5 +227,12 @@ export async function loadConfig(path = "./config.json"): Promise<Config> {
 	config = result.data;
 	setLogLevel(config.logLevel);
 	logger.debug("Config parsed successfully.");
+	return config;
+}
+
+export function getConfig(): Config {
+	if (!config) {
+		throw new Error("Config not loaded — call loadConfig() first");
+	}
 	return config;
 }

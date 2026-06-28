@@ -1,12 +1,18 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+const dbCfg = { database: { path: ":memory:" } };
+mock.module("../../src/config", () => ({
+	config: dbCfg,
+	getConfig: () => dbCfg,
+}));
+
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { initDb } from "../../src/lib/db";
 import { IncidentStore } from "../../src/lib/incident-store";
 
 let store: IncidentStore;
 
 beforeEach(() => {
-	const db = initDb(":memory:");
-	store = new IncidentStore(db);
+	initDb();
+	store = new IncidentStore();
 });
 
 describe("openIncident", () => {

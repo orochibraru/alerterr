@@ -1,4 +1,4 @@
-import { config } from "../../config";
+import { getConfig } from "../../config";
 import type { IncidentStore } from "../incident-store";
 import { logger } from "../logger";
 import type { BreachOpts } from "./types";
@@ -28,6 +28,7 @@ export abstract class BaseCheck {
 		} = opts;
 		const { incidentStore, notifiers, reminderIntervalMs, breachCounter } =
 			this.deps;
+		const config = getConfig();
 		const tag = `[${config.machineName}]`;
 		const key = volume != null ? `${metric}:${volume}` : metric;
 		const activeIncident = incidentStore.getActiveIncident(

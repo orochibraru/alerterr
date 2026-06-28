@@ -1,4 +1,4 @@
-import { config } from "../../config";
+import { getConfig } from "../../config";
 import { logger } from "../logger";
 import type { AbstractNotifier } from "./abstract-notifier";
 import { DiscordNotifier } from "./discord";
@@ -8,6 +8,7 @@ export class Notifiers {
 	private readonly notifiers: AbstractNotifier[] = [];
 
 	constructor() {
+		const config = getConfig();
 		for (const notifier of config.notifiers) {
 			if (notifier.type === "discord") {
 				this.notifiers.push(

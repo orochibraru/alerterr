@@ -1,8 +1,9 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
-import { config } from "../config";
+import { getConfig } from "../config";
 
 let db: Database | undefined;
+export type Db = Database;
 
 function initDbPath(path: string): void {
 	// If the source dir of the db doesn't exist, create it
@@ -11,8 +12,9 @@ function initDbPath(path: string): void {
 }
 
 export function initDb(): Database {
-	initDbPath(config.database.path);
-	db = new Database(config.database.path, { create: true });
+	const path = getConfig().database.path;
+	if (path !== ":memory:") initDbPath(path);
+	db = new Database(path, { create: true });
 	db.run("PRAGMA journal_mode = WAL;");
 	db.run(`
     CREATE TABLE IF NOT EXISTS incidents (
@@ -37,6 +39,8 @@ export function initDb(): Database {
 }
 
 export function getDb(): Database {
-	if (!db) throw new Error("Database not initialized — call initDb() first");
+	if (!db) {
+		throw new Error("Database not initialized — call initDb() first");
+	}
 	return db;
 }

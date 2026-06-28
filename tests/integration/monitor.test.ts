@@ -18,6 +18,7 @@ let siCpuTemp: {
 const integConfig: any = {
 	machineName: "test-host",
 	reminderIntervalMinutes: 30,
+	database: { path: ":memory:" },
 	checks: {
 		cpu: { enabled: true, usageThresholdPercent: 80, consecutiveBreaches: 1 },
 		load: { enabled: false, threshold: 8, consecutiveBreaches: 1 },
@@ -38,7 +39,10 @@ const integConfig: any = {
 	notifiers: [],
 };
 
-mock.module("../../src/config", () => ({ config: integConfig }));
+mock.module("../../src/config", () => ({
+	config: integConfig,
+	getConfig: () => integConfig,
+}));
 
 mock.module("systeminformation", () => ({
 	default: {
@@ -114,13 +118,13 @@ beforeEach(() => {
 	integConfig.checks.cpu.usageThresholdPercent = 80;
 	integConfig.checks.temperature.enabled = false;
 	integConfig.notifiers = [];
+	initDb(); // fresh in-memory db for each test
 });
 
 // --- Helpers ---
 
 function makeStore(): IncidentStore {
-	const db = initDb(":memory:");
-	return new IncidentStore(db);
+	return new IncidentStore();
 }
 
 // --- Discord ---
@@ -132,7 +136,7 @@ describe("Discord alerts", () => {
 		];
 		siCpuLoad = 95;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(1);
@@ -148,7 +152,7 @@ describe("Discord alerts", () => {
 		];
 		siCpuLoad = 70;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(0);
@@ -161,7 +165,7 @@ describe("Discord alerts", () => {
 		integConfig.checks.cpu.consecutiveBreaches = 3;
 		siCpuLoad = 95;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 
 		await monitor.runAllParallel();
 		await monitor.runAllParallel();
@@ -177,7 +181,7 @@ describe("Discord alerts", () => {
 		integConfig.checks.cpu.consecutiveBreaches = 3;
 		siCpuLoad = 95;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 
 		await monitor.runAllParallel();
 		await monitor.runAllParallel();
@@ -193,7 +197,7 @@ describe("Discord alerts", () => {
 		];
 		siCpuLoad = 95;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(1);
@@ -220,7 +224,7 @@ describe("Discord alerts", () => {
 		];
 		siCpuLoad = 95;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		const incident = store.getActiveIncident("cpu");
@@ -248,7 +252,7 @@ describe("Telegram alerts", () => {
 		];
 		siCpuLoad = 95;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(1);
@@ -267,7 +271,7 @@ describe("Telegram alerts", () => {
 		];
 		siCpuLoad = 95;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		httpLog.length = 0;
@@ -296,7 +300,7 @@ describe("multiple notifiers", () => {
 		];
 		siCpuLoad = 95;
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(2);
@@ -325,7 +329,7 @@ describe("Temperature check", () => {
 	test("Apple Silicon all-nulls — no alert, no incident opened", async () => {
 		// siCpuTemp is already { main: null, max: null, cores: [], socket: [], chipset: null }
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(0);
@@ -335,7 +339,7 @@ describe("Temperature check", () => {
 	test("SI sentinel -1 — treated as unavailable, no alert fired", async () => {
 		siCpuTemp = { main: -1, max: -1, cores: [], socket: [], chipset: null };
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(0);
@@ -351,7 +355,7 @@ describe("Temperature check", () => {
 			chipset: null,
 		};
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(0);
@@ -367,7 +371,7 @@ describe("Temperature check", () => {
 			chipset: null,
 		};
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(1);
@@ -387,7 +391,7 @@ describe("Temperature check", () => {
 			chipset: null,
 		};
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(1);
@@ -397,7 +401,7 @@ describe("Temperature check", () => {
 	test("sends recovery alert when temperature drops below threshold", async () => {
 		siCpuTemp = { main: null, max: 90, cores: [], socket: [], chipset: null };
 		const store = makeStore();
-		const monitor = new Monitor(store);
+		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
 		expect(httpLog).toHaveLength(1);
