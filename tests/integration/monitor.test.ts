@@ -135,7 +135,7 @@ describe("Discord alerts", () => {
 			{ type: "discord", webhookUrl: `http://127.0.0.1:${server.port}` },
 		];
 		siCpuLoad = 95;
-		const store = makeStore();
+		const _store = makeStore();
 		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
@@ -151,7 +151,7 @@ describe("Discord alerts", () => {
 			{ type: "discord", webhookUrl: `http://127.0.0.1:${server.port}` },
 		];
 		siCpuLoad = 70;
-		const store = makeStore();
+		const _store = makeStore();
 		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
@@ -251,7 +251,7 @@ describe("Telegram alerts", () => {
 			{ type: "telegram", botToken: BOT_TOKEN, chatId: CHAT_ID },
 		];
 		siCpuLoad = 95;
-		const store = makeStore();
+		const _store = makeStore();
 		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
@@ -270,7 +270,7 @@ describe("Telegram alerts", () => {
 			{ type: "telegram", botToken: BOT_TOKEN, chatId: CHAT_ID },
 		];
 		siCpuLoad = 95;
-		const store = makeStore();
+		const _store = makeStore();
 		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
@@ -299,7 +299,7 @@ describe("multiple notifiers", () => {
 			{ type: "telegram", botToken: BOT_TOKEN, chatId: CHAT_ID },
 		];
 		siCpuLoad = 95;
-		const store = makeStore();
+		const _store = makeStore();
 		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
@@ -390,7 +390,7 @@ describe("Temperature check", () => {
 			socket: [],
 			chipset: null,
 		};
-		const store = makeStore();
+		const _store = makeStore();
 		const monitor = new Monitor();
 		await monitor.runAllParallel();
 
