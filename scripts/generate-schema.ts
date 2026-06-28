@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ConfigSchema } from "../src/config";
 import { logger } from "../src/lib/logger";
 
-logger.info;
+logger.info("Generating config schema...");
 
 const schema = z.toJSONSchema(ConfigSchema, {
 	target: "draft-7",
