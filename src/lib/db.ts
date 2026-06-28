@@ -1,20 +1,26 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { getConfig } from "../config";
+import { logger } from "./logger";
 
 let db: Database | undefined;
 export type Db = Database;
 
 function initDbPath(path: string): void {
+	logger.info(`Ensuring Database path: ${path}`);
 	// If the source dir of the db doesn't exist, create it
 	const dir = path.replace(/\/[^/]*$/, "");
 	mkdirSync(dir, { recursive: true });
 }
 
 export function initDb(): Database {
+	logger.info("Initializing database...");
 	const path = getConfig().database.path;
-	if (path !== ":memory:") initDbPath(path);
+	if (path !== ":memory:") {
+		initDbPath(path);
+	}
 	db = new Database(path, { create: true });
+	logger.info(`Creating db schema...`);
 	db.run("PRAGMA journal_mode = WAL;");
 	db.run(`
     CREATE TABLE IF NOT EXISTS incidents (

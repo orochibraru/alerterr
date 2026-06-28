@@ -39,18 +39,11 @@ mock.module("systeminformation", () => ({
 	},
 }));
 
-mock.module("../../src/lib/notifiers", () => ({
-	Notifiers: class {
-		async alert(msg: string) {
-			return notifySpy(msg);
-		}
-	},
-}));
-
 const unitCfg = {
 	machineName: "test-host",
 	reminderIntervalMinutes: 30,
 	database: { path: ":memory:" },
+	notifiers: [],
 	checks: {
 		cpu: { enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
 		load: { enabled: true, threshold: 8.0, consecutiveBreaches: 1 },

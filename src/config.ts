@@ -236,3 +236,7 @@ export function getConfig(): Config {
 	}
 	return config;
 }
+
+export function isConfigLoaded(): boolean {
+	return !!config;
+}

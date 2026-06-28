@@ -36,6 +36,7 @@ export class Monitor {
 	}
 
 	async runAllParallel(): Promise<void> {
+		logger.debug(`Running all ${this.monitors.length} monitors`);
 		const parts = (await Promise.all(this.monitors.map((m) => m.run()))).filter(
 			(p): p is string => p !== undefined,
 		);
