@@ -47,8 +47,8 @@ function buildTargets(): Bun.Build.CompileTarget[] {
 
 async function main() {
 	const errors: string[] = [];
+	const targets = buildTargets();
 	try {
-		const targets = buildTargets();
 		for (const target of targets) {
 			logger.info(`Building ${target}...`);
 			const res = await Bun.build({

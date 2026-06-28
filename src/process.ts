@@ -8,12 +8,12 @@ export class Process {
 	private monitor: Monitor | undefined;
 	private interval: NodeJS.Timeout | undefined;
 
-	constructor() {
+	constructor(private configPath = "./config.json") {
 		void this.lazyInit();
 	}
 
 	private async lazyInit() {
-		this.config = await loadConfig();
+		this.config = await loadConfig(this.configPath);
 		initDb();
 		this.monitor = new Monitor();
 	}

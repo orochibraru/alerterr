@@ -1,10 +1,10 @@
 import { sleep } from "bun";
 import { program } from "commander";
 import packagejson from "../package.json";
-import { setup } from "../scripts/setup";
-import { validate } from "../scripts/validate";
 import { isConfigLoaded } from "./config";
 import { getIncident, listIncidents } from "./lib/cli/incidents";
+import { setup } from "./lib/cli/setup";
+import { validate } from "./lib/cli/validate";
 import { logger } from "./lib/logger";
 import { Process } from "./process";
 
@@ -16,9 +16,10 @@ program
 program
 	.command("start")
 	.description("Start the monitoring process.")
-	.action(async () => {
+	.option("--config <path>", "Path to config.json", "./config.json")
+	.action(async (opts: { config: string }) => {
 		logger.debug("CMD called: start");
-		const process = new Process();
+		const process = new Process(opts.config);
 		// Sleep until config is loaded
 		let config = isConfigLoaded();
 		while (!config) {

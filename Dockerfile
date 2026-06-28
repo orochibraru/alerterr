@@ -17,4 +17,5 @@ WORKDIR /app
 
 COPY --from=build /app/baba /app/baba
 
-CMD ["/app/baba", "start"]
+ENTRYPOINT ["/app/baba"]
+CMD ["start"]

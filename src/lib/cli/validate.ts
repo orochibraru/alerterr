@@ -1,6 +1,6 @@
-import { loadConfig } from "../src/config";
-import { logger } from "../src/lib/logger";
-import { Notifiers } from "../src/lib/notifiers";
+import { loadConfig } from "../../config";
+import { logger } from "../logger";
+import { Notifiers } from "../notifiers";
 
 export async function validate() {
 	await loadConfig();

@@ -1,6 +1,6 @@
 import si from "systeminformation";
-import { humanReadableBytes } from "../src/lib/helpers";
-import { logger } from "../src/lib/logger";
+import { humanReadableBytes } from "../helpers";
+import { logger } from "../logger";
 
 export async function setup() {
 	const readableVolumes: {
