@@ -3,7 +3,7 @@ import { program } from "commander";
 import packagejson from "../package.json";
 import { setup } from "../scripts/setup";
 import { validate } from "../scripts/validate";
-import { getConfig, isConfigLoaded, loadConfig } from "./config";
+import { isConfigLoaded } from "./config";
 import { getIncident, listIncidents } from "./lib/cli/incidents";
 import { logger } from "./lib/logger";
 import { Process } from "./process";
