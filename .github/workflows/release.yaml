@@ -35,17 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          token: ${{ env.GITHUB_TOKEN }}
+          token: ${{ env.CI_TOKEN }}
           fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          # User
-          git config --global user.name "Release Bot"
-          git config --global user.email "no-reply@ombrage.space"
-          # Credentials
-          git config --global credential.helper store
-          echo "https://x-access-token:${{ secrets.CI_TOKEN }}@github.com" > ~/.git-credentials
 
       - name: Semantic Release
         id: semantic # We need this ID to grab the version output in the next steps
@@ -55,4 +46,4 @@ jobs:
             @semantic-release/changelog
             @semantic-release/git
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
