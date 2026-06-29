@@ -1,9 +1,9 @@
+import { mkdirSync, renameSync, rmSync } from "node:fs";
 import { logger } from "./src/lib/logger";
 
 enum Architecture {
 	X64 = "x64",
 	ARM64 = "arm64",
-	AARCH64 = "aarch64",
 }
 
 enum Target {
@@ -33,43 +33,56 @@ function buildTargets(): Bun.Build.CompileTarget[] {
 		// Linux
 		`bun-${Target.LINUX}-${Architecture.X64}`,
 		`bun-${Target.LINUX}-${Architecture.ARM64}`,
-		`bun-${Target.LINUX}-${Architecture.AARCH64}`,
-		// MacOS
+		// macOS
 		`bun-${Target.MAC}-${Architecture.X64}`,
 		`bun-${Target.MAC}-${Architecture.ARM64}`,
-		`bun-${Target.MAC}-${Architecture.AARCH64}`,
 		// Windows
-		`bun-${Target.WIN}-${Architecture.AARCH64}`,
 		`bun-${Target.WIN}-${Architecture.X64}`,
 		`bun-${Target.WIN}-${Architecture.ARM64}`,
 	];
 }
 
 async function main() {
+	mkdirSync("dist", { recursive: true });
+
 	const errors: string[] = [];
 	const targets = buildTargets();
-	try {
-		for (const target of targets) {
-			logger.info(`Building ${target}...`);
+
+	for (const target of targets) {
+		logger.info(`Building ${target}...`);
+		const tmpDir = `dist/.tmp-${target}`;
+		try {
+			mkdirSync(tmpDir, { recursive: true });
 			const res = await Bun.build({
 				entrypoints: ["./src/index.ts"],
-				compile: {
-					target: target,
-				},
-				outdir: `dist/${target}`,
+				compile: { target },
+				outdir: tmpDir,
 			});
-
 			if (!res.success) {
 				errors.push(`Failed to build ${target}`);
+				continue;
 			}
+			const out = res.outputs[0];
+			if (!out) {
+				errors.push(`No output produced for ${target}`);
+				continue;
+			}
+			const isWindows = target.includes("windows");
+			const ext = isWindows ? ".exe" : "";
+			renameSync(out.path, `dist/${target}${ext}`);
+		} catch (e) {
+			errors.push(`Failed to build ${target}: ${e}`);
+		} finally {
+			rmSync(tmpDir, { recursive: true, force: true });
 		}
-	} catch (e) {
-		errors.push(`Failed to build package: ${JSON.stringify(e)}`);
 	}
 
 	if (errors.length > 0) {
-		logger.error(`Build errors: ${JSON.stringify(errors)}`);
+		for (const err of errors) logger.error(err);
+		process.exit(1);
 	}
+
+	logger.info("Build complete.");
 }
 
 void main();
