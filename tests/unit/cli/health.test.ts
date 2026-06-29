@@ -27,7 +27,6 @@ const fakeConfig: Config = {
 			enabled: true,
 			usageThresholdPercent: 90,
 			volumes: ["/"],
-			consecutiveBreaches: 3,
 		},
 		temperature: {
 			enabled: false,
