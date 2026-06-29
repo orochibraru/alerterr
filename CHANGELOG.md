@@ -1,3 +1,20 @@
+## [1.0.9](https://github.com/orochibraru/baba/compare/v1.0.8...v1.0.9) (2026-06-29)
+
+
+### Bug Fixes
+
+* ram usage && self heal && version ([3a7cffe](https://github.com/orochibraru/baba/commit/3a7cffe3ab4bb959b7d55025012182f255c8893a))
+
+---
+
+## 🐳 Docker
+
+```sh
+docker pull orochibraru/baba:1.0.9
+```
+
+[View on Docker Hub](https://hub.docker.com/r/orochibraru/baba)
+
 ## [1.0.8](https://github.com/orochibraru/baba/compare/v1.0.7...v1.0.8) (2026-06-29)
 
 
