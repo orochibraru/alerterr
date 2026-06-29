@@ -37,6 +37,7 @@ const fakeConfig: Config = {
 		gpu: { enabled: false, vramThresholdPercent: 90, consecutiveBreaches: 3 },
 	},
 	notifiers: [{ type: "discord", webhookUrl: VALID_WEBHOOK }],
+	updates: { notifyEnabled: true },
 };
 
 const okDb = {
