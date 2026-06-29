@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { humanReadableBytes } from "../../src/lib/helpers";
+import { formatDate, humanReadableBytes } from "../../src/lib/helpers";
 
 describe("humanReadableBytes", () => {
 	test("0 bytes", () => {
@@ -32,5 +32,20 @@ describe("humanReadableBytes", () => {
 
 	test("fractional value (2.25 GB)", () => {
 		expect(humanReadableBytes(2.25 * 1024 ** 3)).toBe("2.25 GB");
+	});
+});
+
+describe("formatDate", () => {
+	test("formats a known timestamp to ISO-like string without T or ms", () => {
+		expect(formatDate(0)).toBe("1970-01-01 00:00:00");
+	});
+
+	test("formats a non-zero timestamp correctly", () => {
+		const ms = new Date("2024-06-15T12:34:56.000Z").getTime();
+		expect(formatDate(ms)).toBe("2024-06-15 12:34:56");
+	});
+
+	test("output is always 19 characters long", () => {
+		expect(formatDate(Date.now()).length).toBe(19);
 	});
 });

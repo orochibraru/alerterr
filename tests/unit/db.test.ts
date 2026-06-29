@@ -1,12 +1,18 @@
-const dbCfg = { database: { path: ":memory:" } };
+let dbPath = ":memory:";
 mock.module("../../src/config", () => ({
-	config: dbCfg,
-	getConfig: () => dbCfg,
+	getConfig: () => ({ database: { path: dbPath } }),
 }));
 
 import { Database } from "bun:sqlite";
 import { describe, expect, mock, test } from "bun:test";
+import { rmSync } from "node:fs";
 import { getDb, initDb } from "../../src/lib/db";
+
+describe("getDb before init", () => {
+	test("throws when called before initDb", () => {
+		expect(() => getDb()).toThrow("Database not initialized");
+	});
+});
 
 describe("initDb", () => {
 	test("creates the incidents table", () => {
@@ -39,6 +45,18 @@ describe("initDb", () => {
 	test("returns the database instance", () => {
 		const db = initDb();
 		expect(db).toBeInstanceOf(Database);
+	});
+
+	test("creates parent directory and db file when path is not :memory:", () => {
+		const TMP_DIR = "/tmp/baba-db-test-dir";
+		dbPath = `${TMP_DIR}/test.db`;
+		try {
+			const db = initDb();
+			expect(db).toBeInstanceOf(Database);
+		} finally {
+			dbPath = ":memory:";
+			rmSync(TMP_DIR, { recursive: true, force: true });
+		}
 	});
 });
 

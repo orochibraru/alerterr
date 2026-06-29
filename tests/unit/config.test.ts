@@ -427,9 +427,22 @@ describe("loadConfig", () => {
 		expect(config.checks.disk.enabled).toBe(true);
 	});
 
-	test("throws when config file does not exist", async () => {
+	test("succeeds with env vars when no config file exists", async () => {
+		process.env.BABA_NOTIFIERS = JSON.stringify([
+			{ type: "discord", webhookUrl: VALID_WEBHOOK },
+		]);
+		try {
+			const config = await loadConfig("/nonexistent/path/config.json");
+			expect(config.notifiers).toHaveLength(1);
+			expect(config.notifiers[0]?.type).toBe("discord");
+		} finally {
+			delete process.env.BABA_NOTIFIERS;
+		}
+	});
+
+	test("throws validation error when no config file and no notifiers configured", async () => {
 		expect(loadConfig("/nonexistent/path/config.json")).rejects.toThrow(
-			"Config file not found",
+			"Invalid config:",
 		);
 	});
 
@@ -438,6 +451,65 @@ describe("loadConfig", () => {
 		expect(loadConfig(TMP)).rejects.toThrow(
 			"At least one notifier must be configured",
 		);
+	});
+
+	describe("env var overrides", () => {
+		afterEach(() => {
+			for (const key of Object.keys(process.env)) {
+				if (key.startsWith("BABA_")) delete process.env[key];
+			}
+		});
+
+		test("applies number coercion (BABA_INTERVAL_SECONDS)", async () => {
+			await Bun.write(TMP, JSON.stringify(minimal));
+			process.env.BABA_INTERVAL_SECONDS = "30";
+			const config = await loadConfig(TMP);
+			expect(config.intervalSeconds).toBe(30);
+		});
+
+		test("applies boolean coercion via false string (BABA_CPU_ENABLED)", async () => {
+			await Bun.write(TMP, JSON.stringify(minimal));
+			process.env.BABA_CPU_ENABLED = "false";
+			const config = await loadConfig(TMP);
+			expect(config.checks.cpu.enabled).toBe(false);
+		});
+
+		test("applies boolean coercion via 1 (BABA_CPU_ENABLED)", async () => {
+			await Bun.write(TMP, JSON.stringify(minimal));
+			process.env.BABA_CPU_ENABLED = "1";
+			const config = await loadConfig(TMP);
+			expect(config.checks.cpu.enabled).toBe(true);
+		});
+
+		test("applies csv coercion (BABA_DISK_VOLUMES)", async () => {
+			await Bun.write(TMP, JSON.stringify(minimal));
+			process.env.BABA_DISK_VOLUMES = "/,/data,/mnt";
+			const config = await loadConfig(TMP);
+			expect(config.checks.disk.volumes).toEqual(["/", "/data", "/mnt"]);
+		});
+
+		test("applies json coercion (BABA_NOTIFIERS)", async () => {
+			await Bun.write(TMP, JSON.stringify(minimal));
+			const override = [
+				{
+					type: "discord",
+					webhookUrl: "https://discord.com/api/webhooks/99/zz",
+				},
+			];
+			process.env.BABA_NOTIFIERS = JSON.stringify(override);
+			const config = await loadConfig(TMP);
+			expect(config.notifiers).toHaveLength(1);
+			expect(
+				(config.notifiers[0] as { webhookUrl: string }).webhookUrl,
+			).toContain("99");
+		});
+
+		test("silently ignores an invalid env var value", async () => {
+			await Bun.write(TMP, JSON.stringify(minimal));
+			process.env.BABA_NOTIFIERS = "not-valid-json{{{";
+			const config = await loadConfig(TMP);
+			expect(config.notifiers).toHaveLength(1);
+		});
 	});
 
 	test("non-existent notifiers throw an error", async () => {

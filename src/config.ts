@@ -209,13 +209,15 @@ function applyEnvOverrides(raw: Record<string, unknown>): void {
 export async function loadConfig(path = "./config.json"): Promise<Config> {
 	logger.debug(`Loading config from ${path}...`);
 	const file = Bun.file(path);
-	if (!(await file.exists())) {
-		throw new Error(
-			`Config file not found at "${path}". Copy config.example.json to config.json and fill it in.`,
+	let raw: Record<string, unknown> = {};
+	if (await file.exists()) {
+		logger.debug("Parsing config...");
+		raw = JSON.parse(await file.text()) as Record<string, unknown>;
+	} else {
+		logger.info(
+			`No config file at "${path}", relying on environment variables.`,
 		);
 	}
-	logger.debug("Parsing config...");
-	const raw = JSON.parse(await file.text()) as Record<string, unknown>;
 	applyEnvOverrides(raw);
 	const result = ConfigSchema.safeParse(raw);
 	if (!result.success) {
