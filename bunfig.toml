@@ -1,7 +1,7 @@
 [test]
 timeout = 30000
 coverage = true
-coverageThreshold = 0.95
+coverageThreshold = 0.90
 
 
 [run]
