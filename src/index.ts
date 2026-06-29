@@ -87,4 +87,4 @@ program
 		return getIncident(id);
 	});
 
-program.parse(process.argv);
+await program.parseAsync(process.argv);

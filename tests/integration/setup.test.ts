@@ -14,7 +14,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { GenericContainer } from "testcontainers";
 
-const BINARY_PATH = "dist/bun-linux-x64";
+// Match the host arch so OrbStack / Docker Desktop runs the binary natively.
+// arm64 on Apple Silicon → bun-linux-arm64; x64 everywhere else → bun-linux-x64.
+const LINUX_ARCH = process.arch === "arm64" ? "arm64" : "x64";
+const BINARY_PATH = `dist/bun-linux-${LINUX_ARCH}`;
 const SKIP = !existsSync(BINARY_PATH);
 
 // ── Prompt answer sequence ────────────────────────────────────────────────────
@@ -73,26 +76,43 @@ describe.skipIf(SKIP)("baba setup (Docker integration)", () => {
 			const version = await container.exec([
 				"sh",
 				"-c",
-				"chmod +x /usr/local/bin/baba && baba --version",
+				"chmod +x /usr/local/bin/baba && baba --version 2>&1",
 			]);
-			expect(version.exitCode).toBe(0);
+			if (version.exitCode !== 0) {
+				const ldd = await container.exec([
+					"sh",
+					"-c",
+					"ldd /usr/local/bin/baba 2>&1 || true",
+				]);
+				throw new Error(
+					`baba --version failed (exit ${version.exitCode}): ${version.output}\nldd: ${ldd.output}`,
+				);
+			}
 
-			// Run interactive setup with piped answers
+			// Run interactive setup with piped answers.
+			// The trailing `sleep 5` keeps stdin open so Bun doesn't exit on EOF
+			// before readline has finished processing all answers asynchronously.
 			const answers = buildAnswers();
-			const setupResult = await container.exec([
-				"sh",
-				"-c",
-				// printf safely handles newlines and doesn't need shell escaping
-				`printf '%s\\n' ${answers
-					.split("\n")
-					.map((l) => (l === "" ? "''" : `'${l.replace(/'/g, "'\\''")}'`))
-					.join(" ")} | baba setup --config /tmp/config.json`,
-			]);
-			expect(setupResult.exitCode).toBe(0);
+			const answerArgs = answers
+				.split("\n")
+				.map((l) => (l === "" ? "''" : `'${l.replace(/'/g, "'\\''")}'`))
+				.join(" ");
+			const setupCmd = `(printf '%s\\n' ${answerArgs}; sleep 5) | baba setup --config /tmp/config.json 2>&1`;
+			const setupResult = await container.exec(["sh", "-c", setupCmd]);
+			if (setupResult.exitCode !== 0) {
+				throw new Error(
+					`baba setup failed (exit ${setupResult.exitCode}):\n${setupResult.output}`,
+				);
+			}
 
 			// Read back config.json
 			const cat = await container.exec(["cat", "/tmp/config.json"]);
-			expect(cat.exitCode).toBe(0);
+			if (cat.exitCode !== 0) {
+				const ls = await container.exec(["ls", "-la", "/tmp/"]);
+				throw new Error(
+					`config.json not found (cat exit ${cat.exitCode})\nls /tmp:\n${ls.output}\nsetup output:\n${setupResult.output}`,
+				);
+			}
 
 			const config = JSON.parse(cat.output) as {
 				machineName: string;
@@ -129,27 +149,23 @@ describe.skipIf(SKIP)("baba setup (Docker integration)", () => {
 		try {
 			await container.exec(["chmod", "+x", "/usr/local/bin/baba"]);
 
-			// First run — write initial config
-			const firstAnswers = buildAnswers();
-			await container.exec([
-				"sh",
-				"-c",
-				`printf '%s\\n' ${firstAnswers
+			const runSetup = async (answers: string) => {
+				const args = answers
 					.split("\n")
 					.map((l) => (l === "" ? "''" : `'${l.replace(/'/g, "'\\''")}'`))
-					.join(" ")} | baba setup --config /tmp/config.json`,
-			]);
+					.join(" ");
+				return container.exec([
+					"sh",
+					"-c",
+					`(printf '%s\\n' ${args}; sleep 5) | baba setup --config /tmp/config.json 2>&1`,
+				]);
+			};
+
+			// First run — write initial config
+			await runSetup(buildAnswers());
 
 			// Second run — accept all defaults (all empty = keep existing values)
-			const blankAnswers = Array(25).fill("").join("\n");
-			await container.exec([
-				"sh",
-				"-c",
-				`printf '%s\\n' ${blankAnswers
-					.split("\n")
-					.map(() => "''")
-					.join(" ")} | baba setup --config /tmp/config.json`,
-			]);
+			await runSetup(Array(25).fill("").join("\n"));
 
 			const cat = await container.exec(["cat", "/tmp/config.json"]);
 			const config = JSON.parse(cat.output) as {

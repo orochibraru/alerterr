@@ -332,11 +332,19 @@ export async function setup({ configPath, deps }: SetupArgs): Promise<void> {
 
 export async function runSetup(configPath: string): Promise<void> {
 	const rl = createInterface({ input: process.stdin, output: process.stdout });
+	// Use the async iterator instead of rl.question — Bun's rl.question has a
+	// bug with piped stdin where it stops reading after ~2 lines.
+	const iter = rl[Symbol.asyncIterator]();
+	const prompt = async (question: string): Promise<string> => {
+		process.stdout.write(question);
+		const result = await iter.next();
+		return result.done ? "" : result.value;
+	};
 	try {
 		await setup({
 			configPath,
 			deps: {
-				prompt: (q) => new Promise((resolve) => rl.question(q, resolve)),
+				prompt,
 				readExisting: (path) => {
 					try {
 						return readFileSync(path, "utf-8");
@@ -349,5 +357,6 @@ export async function runSetup(configPath: string): Promise<void> {
 		});
 	} finally {
 		rl.close();
+		process.stdin.destroy();
 	}
 }

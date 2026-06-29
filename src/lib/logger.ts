@@ -1,12 +1,31 @@
 import { PinoTransport } from "@loglayer/transport-pino";
 import { LogLayer } from "loglayer";
 import pino from "pino";
-import pretty from "pino-pretty";
+
+// Lazily import pino-pretty only in TTY mode to avoid bundling it into the
+// compiled binary's hot path and to prevent any module-init side-effects
+// when running as a server process (non-interactive).
+/* c8 ignore next */
+async function createPinoLogger(): Promise<pino.Logger> {
+	/* c8 ignore next */
+	if (!process.stdout.isTTY) return pino({ level: "info" });
+	try {
+		const { default: pretty } = await import("pino-pretty");
+		return pino(
+			{ level: "info" },
+			pretty({
+				colorize: true,
+				translateTime: "SYS:yyyy-mm-dd HH:MM:ss.l",
+				ignore: "pid,hostname",
+			}),
+		);
+	} catch {
+		return pino({ level: "info" });
+	}
+}
 
 /* c8 ignore next */
-// biome-ignore format: single-line ternary required for c8 to suppress the unreachable TTY branch
-// Using pretty() as a direct stream avoids pino's worker-thread transport, which fails in Bun compiled binaries.
-const pinoLogger = pino({ level: "info" }, process.stdout.isTTY ? pretty({ colorize: true, translateTime: "SYS:yyyy-mm-dd HH:MM:ss.l", ignore: "pid,hostname" }) : process.stdout);
+const pinoLogger = await createPinoLogger();
 
 export const logger = new LogLayer({
 	transport: new PinoTransport({
