@@ -66,8 +66,14 @@ function fakeVolume(
 	usedPercent: number,
 ): Systeminformation.FsSizeData {
 	const size = 100 * GB;
-	const used = (usedPercent / 100) * size;
-	return { fs, used, size } as unknown as Systeminformation.FsSizeData;
+	const consumed = (usedPercent / 100) * size;
+	const available = size - consumed;
+	return {
+		fs,
+		used: consumed,
+		available,
+		size,
+	} as unknown as Systeminformation.FsSizeData;
 }
 
 function fakeIncident(overrides: Partial<Incident> = {}): Incident {

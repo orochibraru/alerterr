@@ -23,9 +23,12 @@ export class DiskCheck extends BaseCheck {
 
 		let total = 0;
 		for (const vol of selected) {
-			const usage = Math.round((vol.used / vol.size) * 100);
+			// Use size - available rather than vol.used so APFS shared-pool
+			// space is counted correctly (vol.used only reflects one subvolume).
+			const consumed = vol.size - vol.available;
+			const usage = Math.round((consumed / vol.size) * 100);
 			logger.debug(
-				`Disk ${vol.fs}: ${usage}% (${humanReadableBytes(vol.used)} / ${humanReadableBytes(vol.size)})`,
+				`Disk ${vol.fs}: ${usage}% (${humanReadableBytes(consumed)} / ${humanReadableBytes(vol.size)})`,
 			);
 			total += usage;
 			await this.breach({
@@ -34,7 +37,7 @@ export class DiskCheck extends BaseCheck {
 				value: usage,
 				threshold: this.cfg.usageThresholdPercent,
 				consecutiveRequired: 1,
-				openMsg: `⚠️ **DISK USAGE** (${vol.fs}): Usage is at **${usage}% (${humanReadableBytes(vol.used)}/${humanReadableBytes(vol.size)})**`,
+				openMsg: `⚠️ **DISK USAGE** (${vol.fs}): Usage is at **${usage}% (${humanReadableBytes(consumed)}/${humanReadableBytes(vol.size)})**`,
 				reminderMsg: `⏰ **DISK REMINDER** (${vol.fs}): Still at **${usage}%**`,
 				recoveryMsg: `✅ **DISK** (${vol.fs}): Back to normal at **${usage}%**`,
 			});

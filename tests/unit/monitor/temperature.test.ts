@@ -109,7 +109,7 @@ beforeEach(() => {
 });
 
 describe("TemperatureCheck", () => {
-	test("returns 'Temp: N/A' when disabled (no readings available)", async () => {
+	test("returns undefined when disabled", async () => {
 		const check = new TemperatureCheck(
 			{
 				enabled: false,
@@ -119,10 +119,10 @@ describe("TemperatureCheck", () => {
 			},
 			makeDeps(),
 		);
-		expect(await check.run()).toBe("Temp: N/A");
+		expect(await check.run()).toBeUndefined();
 	});
 
-	test("returns 'Temp: N/A' when enabled but no readings available", async () => {
+	test("returns undefined when enabled but no readings available (e.g. macOS)", async () => {
 		const check = new TemperatureCheck(
 			{
 				enabled: true,
@@ -132,7 +132,7 @@ describe("TemperatureCheck", () => {
 			},
 			makeDeps(),
 		);
-		expect(await check.run()).toBe("Temp: N/A");
+		expect(await check.run()).toBeUndefined();
 	});
 
 	test("returns CPU temp string when reading is available", async () => {

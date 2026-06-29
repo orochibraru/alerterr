@@ -115,9 +115,16 @@ describe("GpuCheck", () => {
 		expect(await check.run()).toBeUndefined();
 	});
 
-	test("returns 'GPU: N/A' when no controllers have utilization data", async () => {
+	test("returns 'GPU: N/A' when no controllers have VRAM data", async () => {
 		graphicsData = {
-			controllers: [{ name: "RTX4090", utilizationGpu: undefined }],
+			controllers: [
+				{
+					name: "RTX4090",
+					utilizationMemory: undefined,
+					memoryTotal: undefined,
+					memoryUsed: undefined,
+				},
+			],
 		};
 		const check = new GpuCheck(
 			{ enabled: true, vramThresholdPercent: 90, consecutiveBreaches: 3 },
@@ -126,8 +133,10 @@ describe("GpuCheck", () => {
 		expect(await check.run()).toBe("GPU: N/A");
 	});
 
-	test("returns usage string when data is available", async () => {
-		graphicsData = { controllers: [{ name: "RTX4090", utilizationGpu: 45 }] };
+	test("returns usage string from utilizationMemory", async () => {
+		graphicsData = {
+			controllers: [{ name: "RTX4090", utilizationMemory: 45 }],
+		};
 		const check = new GpuCheck(
 			{ enabled: true, vramThresholdPercent: 90, consecutiveBreaches: 3 },
 			makeDeps(),
@@ -137,8 +146,22 @@ describe("GpuCheck", () => {
 		expect(result).toContain("45%");
 	});
 
-	test("opens incident when GPU usage exceeds threshold", async () => {
-		graphicsData = { controllers: [{ name: "RTX4090", utilizationGpu: 95 }] };
+	test("computes VRAM % from memoryUsed/memoryTotal when utilizationMemory is absent", async () => {
+		graphicsData = {
+			controllers: [{ name: "RTX4090", memoryUsed: 4096, memoryTotal: 8192 }],
+		};
+		const check = new GpuCheck(
+			{ enabled: true, vramThresholdPercent: 90, consecutiveBreaches: 3 },
+			makeDeps(),
+		);
+		const result = await check.run();
+		expect(result).toContain("50%");
+	});
+
+	test("opens incident when VRAM usage exceeds threshold", async () => {
+		graphicsData = {
+			controllers: [{ name: "RTX4090", utilizationMemory: 95 }],
+		};
 		const check = new GpuCheck(
 			{ enabled: true, vramThresholdPercent: 80, consecutiveBreaches: 1 },
 			makeDeps(),
