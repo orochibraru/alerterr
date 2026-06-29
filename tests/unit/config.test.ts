@@ -126,7 +126,8 @@ describe("ConfigSchema", () => {
 		test("accepts $schema field without failing", () => {
 			const r = ConfigSchema.safeParse({
 				...minimal,
-				$schema: "./schema/config.schema.json",
+				$schema:
+					"https://raw.githubusercontent.com/orochibraru/baba/refs/heads/main/schema/config.schema.json",
 			});
 			expect(r.success).toBe(true);
 		});

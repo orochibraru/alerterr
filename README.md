@@ -21,14 +21,10 @@ Baba is a lightweight homelab monitor that sends Discord or Telegram alerts when
 curl -fsSL https://github.com/orochibraru/baba/releases/latest/download/install.sh | sh
 ```
 
-Detects your OS and architecture, downloads the right binary, and installs it to `/usr/local/bin/baba`. Then:
+Detects your OS and architecture, downloads the right binary to `/usr/local/bin/baba`, and drops an example `config.json` in the current directory if one doesn't already exist. Then:
 
 ```bash
-# 1. Download and edit the example config
-curl -o config.json https://raw.githubusercontent.com/orochibraru/baba/main/config.example.json
-# Edit config.json — at minimum, add your notifier credentials
-
-# 2. Run
+baba setup   # interactive wizard — fill in your notifier credentials and thresholds
 baba start
 ```
 
@@ -120,7 +116,7 @@ All settings live in `config.json`. The only required field is `notifiers` — e
 
 ```json
 {
-  "$schema": "./schema/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/orochibraru/baba/refs/heads/main/schema/config.schema.json",
   "notifiers": [
     { "type": "discord", "webhookUrl": "https://discord.com/api/webhooks/…" }
   ]

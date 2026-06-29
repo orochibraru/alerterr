@@ -240,7 +240,7 @@ ${notifiersSectionConfig}
 
 \`\`\`json
 {
-  "$schema": "./schema/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/orochibraru/baba/refs/heads/main/schema/config.schema.json",
   "notifiers": [
     { "type": "discord", "webhookUrl": "https://discord.com/api/webhooks/<id>/<token>" }
   ]
@@ -255,7 +255,8 @@ See \`config.example.json\` in the repository root.
 // ── config.example.json ───────────────────────────────────────────────────────
 
 const exampleConfig = ConfigSchema.parse({
-	$schema: "./schema/config.schema.json",
+	$schema:
+		"https://raw.githubusercontent.com/orochibraru/baba/refs/heads/main/schema/config.schema.json",
 	machineName: "my-server",
 	notifiers: [
 		{

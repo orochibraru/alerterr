@@ -4,7 +4,7 @@ import packagejson from "../package.json";
 import { isConfigLoaded } from "./config";
 import { health } from "./lib/cli/health";
 import { getIncident, listIncidents } from "./lib/cli/incidents";
-import { setup } from "./lib/cli/setup";
+import { runSetup } from "./lib/cli/setup";
 import { validate } from "./lib/cli/validate";
 import { logger } from "./lib/logger";
 import { Process } from "./process";
@@ -49,10 +49,17 @@ program
 
 program
 	.command("setup")
-	.description("Start the monitoring process.")
-	.action(async () => {
+	.description(
+		"Interactive setup wizard — configure baba and write config.json.",
+	)
+	.option(
+		"--config <path>",
+		"Path to write config.json",
+		process.env.BABA_CONFIG_PATH ?? "./config.json",
+	)
+	.action(async (opts: { config: string }) => {
 		logger.debug("CMD called: setup");
-		await setup();
+		await runSetup(opts.config);
 	});
 
 program
@@ -80,4 +87,4 @@ program
 		return getIncident(id);
 	});
 
-program.parse(process.argv);
+await program.parseAsync(process.argv);

@@ -5,6 +5,7 @@ REPO="orochibraru/baba"
 BIN_NAME="baba"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 VERSION="${VERSION:-latest}"
+CONFIG_PATH="${CONFIG_PATH:-./config.json}"
 
 # ── Detect OS ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,26 @@ else
     sudo mv "$TMP_FILE" "$DEST"
 fi
 
+# ── Config ────────────────────────────────────────────────────────────────────
+
+echo ""
+if [ -f "$CONFIG_PATH" ]; then
+    echo "Config already exists at $CONFIG_PATH — keeping it."
+else
+    printf "Downloading example config to %s..." "$CONFIG_PATH"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/config.example.json" -o "$CONFIG_PATH"
+        echo " done."
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO "$CONFIG_PATH" "https://raw.githubusercontent.com/${REPO}/main/config.example.json"
+        echo " done."
+    else
+        echo ""
+        echo "Note: curl and wget not found — could not download example config."
+        echo "Download it from: https://github.com/${REPO}/blob/main/config.example.json"
+    fi
+fi
+
 echo ""
 echo "baba installed to $DEST"
-echo "Run 'baba --help' to get started."
+echo "Run 'baba setup' to configure interactively, or edit $CONFIG_PATH and run 'baba start'."
