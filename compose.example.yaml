@@ -1,8 +1,6 @@
 services:
   baba:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: orochibraru/baba:latest
     restart: unless-stopped
     # Full host system visibility for systeminformation
     privileged: true
@@ -12,10 +10,7 @@ services:
       - /sys:/sys:ro
       - /dev:/dev:ro
       - ./config.json:/app/config.json:ro
-      - ./tmp:/app/tmp
-    healthcheck:
-      test: ["CMD", "/app/baba", "health"]
-      interval: 30s
-      timeout: 10s
-      start_period: 15s
-      retries: 3
+      - baba_tmp:/app/tmp
+
+volumes:
+  baba_tmp: {}

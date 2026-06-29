@@ -2,6 +2,7 @@ import { sleep } from "bun";
 import { program } from "commander";
 import packagejson from "../package.json";
 import { isConfigLoaded } from "./config";
+import { health } from "./lib/cli/health";
 import { getIncident, listIncidents } from "./lib/cli/incidents";
 import { setup } from "./lib/cli/setup";
 import { validate } from "./lib/cli/validate";
@@ -16,7 +17,11 @@ program
 program
 	.command("start")
 	.description("Start the monitoring process.")
-	.option("--config <path>", "Path to config.json", "./config.json")
+	.option(
+		"--config <path>",
+		"Path to config.json",
+		process.env.BABA_CONFIG_PATH ?? "./config.json",
+	)
 	.action(async (opts: { config: string }) => {
 		logger.debug("CMD called: start");
 		const process = new Process(opts.config);
@@ -28,6 +33,18 @@ program
 			config = isConfigLoaded();
 		}
 		process.start();
+	});
+
+program
+	.command("health")
+	.description("Check the service is correctly configured and able to alert.")
+	.option(
+		"--config <path>",
+		"Path to config.json",
+		process.env.BABA_CONFIG_PATH ?? "./config.json",
+	)
+	.action(async (opts: { config: string }) => {
+		await health(opts.config);
 	});
 
 program

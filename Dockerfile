@@ -17,5 +17,8 @@ WORKDIR /app
 
 COPY --from=build /app/baba /app/baba
 
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD ["/app/baba", "health"]
+
 ENTRYPOINT ["/app/baba"]
 CMD ["start"]

@@ -15,22 +15,86 @@ Baba is a lightweight homelab monitor that sends Discord or Telegram alerts when
 
 ## Quick start
 
-Requires [Bun](https://bun.sh).
+### Docker Compose
 
 ```bash
-# 1. Install dependencies
-bun install
+# 1. Copy and edit config — at minimum, set your notifier webhook URL
+curl -o config.json https://raw.githubusercontent.com/orochibraru/baba/main/config.example.json
 
-# 2. Copy and edit config
-cp config.example.json config.json
-# At minimum, set your notifier webhook URL
+# 2. Download the compose file
+curl -o compose.yaml https://raw.githubusercontent.com/orochibraru/baba/main/compose.example.yaml
 
 # 3. Run
-bun run dev
-
-# Or build a self-contained binary and run it
-bun run build && ./baba start
+docker compose up -d
 ```
+
+### Binary
+
+Download the latest binary for your platform from the [releases page](https://github.com/orochibraru/baba/releases), then:
+
+```bash
+# 1. Copy and edit config
+curl -O https://raw.githubusercontent.com/orochibraru/baba/main/config.example.json
+mv config.example.json config.json
+
+# 2. Run
+./baba start
+```
+
+## Docker
+
+### Docker Compose (recommended)
+
+The included `compose.yaml` handles all the required flags. Edit `config.json`, then:
+
+```bash
+docker compose up -d
+```
+
+### docker run
+
+The image has no bundled config — pass it via a volume mount and `--config`, or configure everything through environment variables.
+
+**With a config file:**
+
+```bash
+docker run -d \
+  --name baba \
+  --restart unless-stopped \
+  --privileged --pid=host --network=host \
+  -v /sys:/sys:ro \
+  -v /dev:/dev:ro \
+  -v /path/to/config.json:/config.json:ro \
+  -v /path/to/data:/app/tmp \
+  orochibraru/baba:latest start --config /config.json
+```
+
+**With environment variables only (no config file):**
+
+```bash
+docker run -d \
+  --name baba \
+  --restart unless-stopped \
+  --privileged --pid=host --network=host \
+  -v /sys:/sys:ro \
+  -v /dev:/dev:ro \
+  -v /path/to/data:/app/tmp \
+  -e BABA_NOTIFIERS='[{"type":"discord","webhookUrl":"https://discord.com/api/webhooks/…"}]' \
+  orochibraru/baba:latest
+```
+
+See the [Environment variables](#environment-variables) section for the full list of `BABA_*` variables.
+
+### Why these flags?
+
+| Flag | Reason |
+|---|---|
+| `--privileged` | Full access to hardware sensors (temperature, GPU) |
+| `--pid=host` | Shares the host PID namespace so `/proc` reflects host-wide CPU and process stats |
+| `--network=host` | Network interface stats match the host |
+| `-v /sys:/sys:ro` | Read-only access to kernel hardware interfaces (hwmon, thermal zones) |
+| `-v /dev:/dev:ro` | Device access for disk stats |
+| `-v …:/app/tmp` | Persists the SQLite incident database across restarts |
 
 ## Configuration
 
@@ -54,6 +118,7 @@ See [`docs/config.md`](docs/config.md) for the full reference.
 | Command | Description |
 |---|---|
 | `./baba start` | Start the monitoring loop |
+| `./baba health` | Check the service is correctly configured and able to alert |
 | `./baba setup` | Interactive setup wizard |
 | `./baba validate` | Send a test alert to verify your notifiers |
 | `./baba list incidents [-n N]` | List recent incidents (default: 50) |
@@ -81,3 +146,7 @@ See [`docs/env.md`](docs/env.md) for the full list.
   }
 }
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
