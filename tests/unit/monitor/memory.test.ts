@@ -8,7 +8,7 @@ import type {
 } from "../../../src/lib/incident-store";
 
 const GB = 1024 ** 3;
-let memData = { total: 16 * GB, used: 8 * GB };
+let memData = { total: 16 * GB, used: 8 * GB, available: 8 * GB };
 
 const notifySpy = mock(async (_msg: string) => {});
 
@@ -96,7 +96,7 @@ function makeDeps(overrides?: Partial<CheckDeps>): CheckDeps {
 }
 
 beforeEach(() => {
-	memData = { total: 16 * GB, used: 8 * GB };
+	memData = { total: 16 * GB, used: 8 * GB, available: 8 * GB };
 	notifySpy.mockClear();
 	for (const spy of Object.values(incidentStoreMock)) spy.mockClear();
 	incidentStoreMock.getActiveIncident.mockImplementation(() => null);
@@ -106,7 +106,7 @@ beforeEach(() => {
 
 describe("MemoryCheck", () => {
 	test("returns formatted memory usage string", async () => {
-		memData = { total: 16 * GB, used: 8 * GB };
+		memData = { total: 16 * GB, used: 8 * GB, available: 8 * GB };
 		const check = new MemoryCheck(
 			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
 			makeDeps(),
@@ -115,7 +115,7 @@ describe("MemoryCheck", () => {
 	});
 
 	test("does not notify when usage is below threshold", async () => {
-		memData = { total: 16 * GB, used: 14 * GB };
+		memData = { total: 16 * GB, used: 14 * GB, available: 2 * GB };
 		const check = new MemoryCheck(
 			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
 			makeDeps(),
@@ -125,7 +125,7 @@ describe("MemoryCheck", () => {
 	});
 
 	test("opens incident when usage exceeds threshold", async () => {
-		memData = { total: 16 * GB, used: 15 * GB };
+		memData = { total: 16 * GB, used: 15 * GB, available: 1 * GB };
 		const check = new MemoryCheck(
 			{ enabled: true, usageThresholdPercent: 90, consecutiveBreaches: 1 },
 			makeDeps(),

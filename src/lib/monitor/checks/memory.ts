@@ -15,9 +15,12 @@ export class MemoryCheck extends BaseCheck {
 	async run(): Promise<string | undefined> {
 		if (!this.cfg.enabled) return;
 		const mem = await si.mem();
-		const usage = Math.round((mem.used / mem.total) * 100);
+		// Use total - available rather than mem.used so page cache and buffers
+		// are excluded, matching what htop/btop report as "used".
+		const actualUsed = mem.total - mem.available;
+		const usage = Math.round((actualUsed / mem.total) * 100);
 		logger.debug(
-			`Memory: ${usage}% (${humanReadableBytes(mem.used)} / ${humanReadableBytes(mem.total)})`,
+			`Memory: ${usage}% (${humanReadableBytes(actualUsed)} / ${humanReadableBytes(mem.total)})`,
 		);
 		await this.breach({
 			metric: "memory",
@@ -25,7 +28,7 @@ export class MemoryCheck extends BaseCheck {
 			value: usage,
 			threshold: this.cfg.usageThresholdPercent,
 			consecutiveRequired: this.cfg.consecutiveBreaches,
-			openMsg: `⚠️ **MEMORY USAGE**: Usage is at **${usage}% (${humanReadableBytes(mem.used)}/${humanReadableBytes(mem.total)})**`,
+			openMsg: `⚠️ **MEMORY USAGE**: Usage is at **${usage}% (${humanReadableBytes(actualUsed)}/${humanReadableBytes(mem.total)})**`,
 			reminderMsg: `⏰ **MEMORY REMINDER**: Still at **${usage}%**`,
 			recoveryMsg: `✅ **MEMORY**: Back to normal at **${usage}%**`,
 		});

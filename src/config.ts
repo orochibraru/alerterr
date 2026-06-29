@@ -247,29 +247,30 @@ function applyEnvOverrides(raw: Record<string, unknown>): void {
 
 // ── loadConfig ────────────────────────────────────────────────────────────────
 
-const DEFAULT_CONFIG_PATH = "/var/lib/baba/config.json";
-const DEFAULT_CONFIG_TEMPLATE = "/var/lib/baba/config.default.json";
-
-export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<Config> {
-	logger.debug(`Loading config from ${path}...`);
-	const file = Bun.file(path);
+export async function loadConfig(path?: string): Promise<Config> {
+	const resolvedPath =
+		path ?? process.env.DEFAULT_CONFIG_PATH ?? "/var/lib/baba/config.json";
+	const templatePath =
+		process.env.DEFAULT_CONFIG_TEMPLATE ?? "/var/lib/baba/config.default.json";
+	logger.debug(`Loading config from ${resolvedPath}...`);
+	const file = Bun.file(resolvedPath);
 	let raw: Record<string, unknown> = {};
 	if (await file.exists()) {
 		logger.debug("Parsing config...");
 		raw = JSON.parse(await file.text()) as Record<string, unknown>;
 	} else {
 		// Self-heal: restore from the immutable default template if available
-		const template = Bun.file(DEFAULT_CONFIG_TEMPLATE);
+		const template = Bun.file(templatePath);
 		if (await template.exists()) {
 			logger.warn(
-				`Config not found at "${path}" — restoring from ${DEFAULT_CONFIG_TEMPLATE}. Run 'baba setup' to reconfigure.`,
+				`Config not found at "${resolvedPath}" — restoring from ${templatePath}. Run 'baba setup' to reconfigure.`,
 			);
 			const text = await template.text();
-			await Bun.write(path, text);
+			await Bun.write(resolvedPath, text);
 			raw = JSON.parse(text) as Record<string, unknown>;
 		} else {
-			logger.info(
-				`No config file at "${path}", relying on environment variables.`,
+			throw new Error(
+				`No config file found at "${resolvedPath}". Run 'baba setup' to create one.`,
 			);
 		}
 	}

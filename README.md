@@ -2,6 +2,9 @@
 
 > Named after the lookout pirate in the French comic book *Astérix*, always watching for trouble on the horizon.
 
+> [!CAUTION]
+> While the app's version is more than 1.x it's still in beta and may contain bugs. It won't impact your system but I can't guarantee it's reliable yet until I have long term data to prove it. 
+
 Baba is a lightweight homelab monitor that sends Discord or Telegram alerts when something goes wrong — and tells you when it's fixed.
 
 ## What it does

@@ -25,15 +25,21 @@ program
 	)
 	.action(async (opts: { config: string }) => {
 		logger.debug("CMD called: start");
-		const process = new Process(opts.config);
+		const app = new Process(opts.config);
 		// Sleep until config is loaded
 		let config = isConfigLoaded();
+		let maxTries = 0;
 		while (!config) {
 			await sleep(100);
 			logger.info("Waiting for config to load...");
 			config = isConfigLoaded();
+			maxTries++;
+			if (maxTries > 50) {
+				logger.error("Failed to load config after 50 attempts.");
+				process.exit(1);
+			}
 		}
-		process.start();
+		app.start();
 	});
 
 program

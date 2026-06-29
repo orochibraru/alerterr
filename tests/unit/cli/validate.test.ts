@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ValidateDeps } from "../../../src/lib/cli/validate";
 import { validate } from "../../../src/lib/cli/validate";
 
@@ -45,13 +48,25 @@ describe("validate", () => {
 	});
 
 	describe("default deps (production path)", () => {
+		let tmpDir: string;
+		let cfgPath: string;
+
 		afterEach(() => {
-			delete process.env.BABA_NOTIFIERS_DISCORD_WEBHOOK_URL;
+			rmSync(tmpDir, { recursive: true, force: true });
+			delete process.env.DEFAULT_CONFIG_PATH;
 		});
 
 		test("calls real loadConfig and real Notifiers when no deps provided", async () => {
-			process.env.BABA_NOTIFIERS_DISCORD_WEBHOOK_URL = VALID_WEBHOOK;
-			// Uses defaultDeps: real loadConfig (env-var based) + real Notifiers (network fails gracefully)
+			tmpDir = mkdtempSync(join(tmpdir(), "baba-validate-"));
+			cfgPath = join(tmpDir, "config.json");
+			writeFileSync(
+				cfgPath,
+				JSON.stringify({
+					notifiers: [{ type: "discord", webhookUrl: VALID_WEBHOOK }],
+				}),
+			);
+			process.env.DEFAULT_CONFIG_PATH = cfgPath;
+			// real loadConfig + real Notifiers — network will fail gracefully
 			await expect(validate()).resolves.toBeUndefined();
 		});
 	});

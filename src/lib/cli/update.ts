@@ -89,6 +89,10 @@ export async function runUpdate(): Promise<void> {
 		}
 	}
 
+	// Leave a marker so the next startup skips the update notification,
+	// even if the shell is still hashing the old binary.
+	await Bun.write("/var/lib/baba/.just_updated", new Date().toISOString());
+
 	logger.info(`Updated baba to v${latest}.`);
 	process.stdout.write(`Updated to v${latest}. Restart baba to apply.\n`);
 }

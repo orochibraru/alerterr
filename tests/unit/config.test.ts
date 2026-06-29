@@ -433,20 +433,9 @@ describe("loadConfig", () => {
 		expect(config.checks.disk.enabled).toBe(true);
 	});
 
-	test("succeeds with env vars when no config file exists", async () => {
-		process.env.BABA_NOTIFIERS_DISCORD_WEBHOOK_URL = VALID_WEBHOOK;
-		try {
-			const config = await loadConfig("/nonexistent/path/config.json");
-			expect(config.notifiers).toHaveLength(1);
-			expect(config.notifiers[0]?.type).toBe("discord");
-		} finally {
-			delete process.env.BABA_NOTIFIERS_DISCORD_WEBHOOK_URL;
-		}
-	});
-
-	test("throws validation error when no config file and no notifiers configured", async () => {
-		expect(loadConfig("/nonexistent/path/config.json")).rejects.toThrow(
-			"Invalid config:",
+	test("throws when no config file exists", async () => {
+		await expect(loadConfig("/nonexistent/path/config.json")).rejects.toThrow(
+			"No config file found",
 		);
 	});
 

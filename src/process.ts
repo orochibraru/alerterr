@@ -1,3 +1,4 @@
+import { unlink } from "node:fs/promises";
 import packagejson from "../package.json";
 import { type Config, loadConfig } from "./config";
 import { getLatestVersion, isNewerVersion } from "./lib/cli/update";
@@ -16,12 +17,26 @@ export class Process {
 	}
 
 	private async lazyInit() {
-		this.config = await loadConfig(this.configPath);
+		try {
+			this.config = await loadConfig(this.configPath);
+		} catch (err) {
+			logger.error(String(err));
+			process.exit(1);
+		}
 		initDb();
 		this.monitor = new Monitor();
 	}
 
 	private async checkForUpdates(): Promise<void> {
+		// Suppress notification for a short window after `baba update` succeeds,
+		// in case the shell is still hashing the old binary.
+		const marker = Bun.file("/var/lib/baba/.just_updated");
+		if (await marker.exists()) {
+			const age = Date.now() - new Date(await marker.text()).getTime();
+			await unlink("/var/lib/baba/.just_updated").catch(() => {});
+			if (age < 5 * 60 * 1000) return;
+		}
+
 		const latest = await getLatestVersion();
 		if (latest && isNewerVersion(latest, packagejson.version)) {
 			const notifiers = new Notifiers();
