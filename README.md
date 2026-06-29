@@ -120,7 +120,7 @@ All settings live in `config.json`. The only required field is `notifiers` — e
 
 ```json
 {
-  "$schema": "./schema/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/orochibraru/baba/refs/heads/main/schema/config.schema.json",
   "notifiers": [
     { "type": "discord", "webhookUrl": "https://discord.com/api/webhooks/…" }
   ]

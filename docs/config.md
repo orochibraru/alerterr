@@ -77,7 +77,7 @@ To find your Telegram chat ID: add [@userinfobot](https://t.me/userinfobot) to t
 
 ```json
 {
-  "$schema": "./schema/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/orochibraru/baba/refs/heads/main/schema/config.schema.json",
   "notifiers": [
     { "type": "discord", "webhookUrl": "https://discord.com/api/webhooks/<id>/<token>" }
   ]
