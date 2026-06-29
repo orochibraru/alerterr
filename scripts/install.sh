@@ -13,8 +13,8 @@ case "$OS" in
     Linux)  OS="linux"  ;;
     Darwin) OS="darwin" ;;
     *)
-        echo "Unsupported OS: $OS"
-        echo "Please download the binary manually from https://github.com/$REPO/releases"
+        echo "Unsupported OS: $OS" >&2
+        echo "Please download the binary manually from https://github.com/$REPO/releases" >&2
         exit 1
         ;;
 esac
@@ -26,8 +26,8 @@ case "$ARCH" in
     x86_64)           ARCH="x64"   ;;
     aarch64 | arm64)  ARCH="arm64" ;;
     *)
-        echo "Unsupported architecture: $ARCH"
-        echo "Please download the binary manually from https://github.com/$REPO/releases"
+        echo "Unsupported architecture: $ARCH" >&2
+        echo "Please download the binary manually from https://github.com/$REPO/releases" >&2
         exit 1
         ;;
 esac
@@ -42,6 +42,15 @@ else
     DOWNLOAD_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ASSET}"
 fi
 
+# ── Dry-run mode (used by tests) ──────────────────────────────────────────────
+
+if [ "${DRY_RUN:-}" = "1" ]; then
+    echo "asset=${ASSET}"
+    echo "url=${DOWNLOAD_URL}"
+    echo "install_dir=${INSTALL_DIR}"
+    exit 0
+fi
+
 # ── Download ──────────────────────────────────────────────────────────────────
 
 TMP_FILE="$(mktemp)"
@@ -52,7 +61,7 @@ if command -v curl >/dev/null 2>&1; then
 elif command -v wget >/dev/null 2>&1; then
     wget -qO "$TMP_FILE" "$DOWNLOAD_URL"
 else
-    echo "Error: curl or wget is required"
+    echo "Error: curl or wget is required" >&2
     exit 1
 fi
 
