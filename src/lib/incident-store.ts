@@ -43,7 +43,7 @@ export class IncidentStore {
 		this.db = getDb();
 	}
 
-	openIncident(opts: OpenIncidentOpts): Incident {
+	public openIncident(opts: OpenIncidentOpts): Incident {
 		const { metric, volume, value, threshold } = opts;
 		const now = Date.now();
 		const row = this.db
@@ -63,7 +63,10 @@ export class IncidentStore {
 		};
 	}
 
-	getActiveIncident(metric: string, volume?: string | null): Incident | null {
+	public getActiveIncident(
+		metric: string,
+		volume?: string | null,
+	): Incident | null {
 		if (volume != null) {
 			return (this.db
 				.query(
@@ -78,13 +81,13 @@ export class IncidentStore {
 			.get(metric) ?? null) as Incident | null;
 	}
 
-	resolveIncident(id: number): void {
+	public resolveIncident(id: number): void {
 		this.db
 			.query("UPDATE incidents SET resolved_at = ? WHERE id = ?")
 			.run(Date.now(), id);
 	}
 
-	recordNotification(opts: RecordNotificationOpts): void {
+	public recordNotification(opts: RecordNotificationOpts): void {
 		const { incidentId, type, succeeded } = opts;
 		this.db
 			.query(
@@ -93,7 +96,7 @@ export class IncidentStore {
 			.run(incidentId, Date.now(), type, succeeded ? 1 : 0);
 	}
 
-	getLastNotification(incidentId: number): Notification | null {
+	public getLastNotification(incidentId: number): Notification | null {
 		return (this.db
 			.query(
 				"SELECT * FROM notifications WHERE incident_id = ? ORDER BY sent_at DESC, id DESC LIMIT 1",
@@ -101,7 +104,7 @@ export class IncidentStore {
 			.get(incidentId) ?? null) as Notification | null;
 	}
 
-	listIncidents(limit = 50): IncidentSummary[] {
+	public listIncidents(limit = 50): IncidentSummary[] {
 		return this.db
 			.query(
 				`SELECT i.*, COUNT(n.id) as notification_count
@@ -114,7 +117,7 @@ export class IncidentStore {
 			.all() as IncidentSummary[];
 	}
 
-	getIncident(id: number): IncidentDetail | null {
+	public getIncident(id: number): IncidentDetail | null {
 		const incident = this.db
 			.query("SELECT * FROM incidents WHERE id = ?")
 			.get(id) as Incident | null;
