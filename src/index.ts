@@ -124,4 +124,9 @@ program
 		return getIncident(id);
 	});
 
+program.on("error", (err) => {
+	logger.error(err);
+	process.exit(1);
+});
+
 await program.parseAsync(process.argv);
