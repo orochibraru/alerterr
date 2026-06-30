@@ -1,3 +1,26 @@
+## [1.0.10](https://github.com/orochibraru/baba/compare/v1.0.9...v1.0.10) (2026-06-30)
+
+
+### Bug Fixes
+
+* checks on temp & storage ([e33d2f7](https://github.com/orochibraru/baba/commit/e33d2f740f55aa3b63f61944adccac656af7ed39))
+* tests ([8948a32](https://github.com/orochibraru/baba/commit/8948a3235a332bccf69ce255db51a61f8afc2f2b))
+
+
+### Features
+
+* run in the background ([f90e30c](https://github.com/orochibraru/baba/commit/f90e30c854dc5055de6ae7edcbaa388947c50629))
+
+---
+
+## 🐳 Docker
+
+```sh
+docker pull orochibraru/baba:1.0.10
+```
+
+[View on Docker Hub](https://hub.docker.com/r/orochibraru/baba)
+
 ## [1.0.9](https://github.com/orochibraru/baba/compare/v1.0.8...v1.0.9) (2026-06-29)
 
 
