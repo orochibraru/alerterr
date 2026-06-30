@@ -4,6 +4,8 @@ import packagejson from "../package.json";
 import { isConfigLoaded } from "./config";
 import { health } from "./lib/cli/health";
 import { getIncident, listIncidents } from "./lib/cli/incidents";
+import { runInstall } from "./lib/cli/install";
+import { runLogs } from "./lib/cli/logs";
 import { runSetup } from "./lib/cli/setup";
 import { runUpdate } from "./lib/cli/update";
 import { validate } from "./lib/cli/validate";
@@ -67,6 +69,26 @@ program
 	.action(async (opts: { config: string }) => {
 		logger.debug("CMD called: setup");
 		await runSetup(opts.config);
+	});
+
+program
+	.command("logs")
+	.description("Show logs from the background service.")
+	.option("-f, --follow", "Stream new log entries as they arrive", false)
+	.option("-n, --lines <number>", "Number of lines to show", "100")
+	.action(async (opts: { follow: boolean; lines: string }) => {
+		logger.debug("CMD called: logs");
+		await runLogs({ follow: opts.follow, lines: Number(opts.lines) });
+	});
+
+program
+	.command("install")
+	.description(
+		"Register baba as a background service (launchd on macOS, systemd on Linux).",
+	)
+	.action(async () => {
+		logger.debug("CMD called: install");
+		await runInstall();
 	});
 
 program

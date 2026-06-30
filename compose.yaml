@@ -19,3 +19,14 @@ services:
       timeout: 10s
       start_period: 15s
       retries: 3
+
+  ntfy:
+    image: binwiederhier/ntfy
+    command:
+      - serve
+    volumes:
+      - /var/cache/ntfy:/var/cache/ntfy
+      - /etc/ntfy:/etc/ntfy
+    ports:
+      - 8085:80
+    restart: unless-stopped

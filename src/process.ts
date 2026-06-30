@@ -1,4 +1,5 @@
 import { unlink } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import packagejson from "../package.json";
 import { type Config, loadConfig } from "./config";
 import { getLatestVersion, isNewerVersion } from "./lib/cli/update";
@@ -28,12 +29,17 @@ export class Process {
 	}
 
 	private async checkForUpdates(): Promise<void> {
+		if (!this.config) return;
 		// Suppress notification for a short window after `baba update` succeeds,
 		// in case the shell is still hashing the old binary.
-		const marker = Bun.file("/var/lib/baba/.just_updated");
+		const markerPath = join(
+			dirname(this.config.database.path),
+			".just_updated",
+		);
+		const marker = Bun.file(markerPath);
 		if (await marker.exists()) {
 			const age = Date.now() - new Date(await marker.text()).getTime();
-			await unlink("/var/lib/baba/.just_updated").catch(() => {});
+			await unlink(markerPath).catch(() => {});
 			if (age < 5 * 60 * 1000) return;
 		}
 

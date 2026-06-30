@@ -1,4 +1,6 @@
+import { dirname, join } from "node:path";
 import packagejson from "../../../package.json";
+import { loadConfig } from "../../config";
 import { logger } from "../logger";
 
 const REPO = "orochibraru/baba";
@@ -24,6 +26,15 @@ export function isNewerVersion(latest: string, current: string): boolean {
 	if (la !== ca) return (la ?? 0) > (ca ?? 0);
 	if (lb !== cb) return (lb ?? 0) > (cb ?? 0);
 	return (lc ?? 0) > (cc ?? 0);
+}
+
+export async function resolveMarkerPath(): Promise<string> {
+	try {
+		const config = await loadConfig();
+		return join(dirname(config.database.path), ".just_updated");
+	} catch {
+		return "/var/lib/baba/.just_updated";
+	}
 }
 
 export async function runUpdate(): Promise<void> {
@@ -91,7 +102,8 @@ export async function runUpdate(): Promise<void> {
 
 	// Leave a marker so the next startup skips the update notification,
 	// even if the shell is still hashing the old binary.
-	await Bun.write("/var/lib/baba/.just_updated", new Date().toISOString());
+	const markerPath = await resolveMarkerPath();
+	await Bun.write(markerPath, new Date().toISOString());
 
 	logger.info(`Updated baba to v${latest}.`);
 	process.stdout.write(`Updated to v${latest}. Restart baba to apply.\n`);

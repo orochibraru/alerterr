@@ -27,9 +27,11 @@ curl -fsSL https://github.com/orochibraru/baba/releases/latest/download/install.
 Detects your OS and architecture, installs the binary to `/usr/local/bin/baba`, creates `/var/lib/baba/`, and seeds `/var/lib/baba/config.json` from the default template if one doesn't already exist. Then:
 
 ```bash
-baba setup   # interactive wizard — fill in your notifier credentials and thresholds
-baba start
+baba setup    # interactive wizard — fill in your notifier credentials and thresholds
+baba install  # register as a background service (launchd on macOS, systemd on Linux)
 ```
+
+To run in the foreground instead: `baba start`
 
 To install to a custom location: `INSTALL_DIR=~/.local/bin curl -fsSL … | sh`
 
@@ -122,6 +124,7 @@ All runtime files live in `/var/lib/baba/`:
 | `config.json` | Active configuration (edit or run `baba setup`) |
 | `config.default.json` | Immutable template refreshed on each install — used to restore `config.json` if it's ever deleted |
 | `baba.db` | SQLite incident history |
+| `baba.log` | Service log output (written when running via `baba install`) |
 
 ## Configuration
 
@@ -150,13 +153,31 @@ See [`docs/config.md`](docs/config.md) for the full reference.
 
 | Command | Description |
 |---|---|
-| `baba start` | Start the monitoring loop |
 | `baba setup` | Interactive setup wizard — writes `/var/lib/baba/config.json` |
+| `baba install` | Register baba as a background service (launchd on macOS, systemd on Linux) |
+| `baba start` | Start the monitoring loop in the foreground |
+| `baba logs [-f] [-n N]` | Show logs from the background service; `-f` to follow, `-n` for line count (default 100) |
 | `baba update` | Check for a newer release and replace the binary in-place |
 | `baba health` | Check the service is correctly configured and able to alert |
 | `baba validate` | Send a test alert to verify your notifiers |
 | `baba list incidents [-n N]` | List recent incidents (default: 50) |
 | `baba get incident <id>` | Show details and notifications for an incident |
+
+## Running in the background
+
+`baba install` registers the monitor as a system service so it starts automatically and restarts on crash — no terminal session required.
+
+```bash
+baba setup    # configure first
+baba install  # register and start the service
+baba logs -f  # follow live output
+```
+
+**macOS** — registers a LaunchAgent at `~/Library/LaunchAgents/com.orochibraru.baba.plist`. Starts on login, restarts on crash. Logs go to `/var/lib/baba/baba.log`.
+
+**Linux** — tries to register a systemd system service at `/etc/systemd/system/baba.service` (requires `sudo`). Starts on boot, restarts on crash. If `sudo` is unavailable, falls back to a user service at `~/.config/systemd/user/baba.service` (only runs while logged in). Logs go to `/var/lib/baba/baba.log`.
+
+To reinstall after changing config or updating the binary, just run `baba install` again — it replaces the existing service definition and restarts.
 
 ## Environment variables
 
